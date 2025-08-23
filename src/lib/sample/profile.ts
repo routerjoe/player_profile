@@ -1,0 +1,61 @@
+import { Profile } from '@/lib/types';
+
+export const profile: Profile = {
+  name: { first: 'Lana', last: 'Nolan' },
+  classYear: 2027,
+  positions: ['SS', '2B'],
+  bats: 'R',
+  throws: 'R',
+  location: { city: 'Albany', state: 'NY' },
+  height: "5'6\"",
+  weight: '135 lb',
+
+  contact: { email: 'lananolan08@gmail.com', website: undefined },
+  twitter: { handle: 'LanaNolan02' },
+
+  gpa: '3.8',
+  coursework: ['AP English', 'Honors Algebra II', 'US History'],
+
+  stats: [
+    { label: 'Exit Velo', value: '68 mph', season: '2024' },
+    { label: 'Throw Velo', value: '59 mph', season: '2024' },
+    { label: 'Home to 1st', value: '2.98 s', season: '2024' }
+  ],
+
+  highlights: [
+    {
+      title: 'Line-drive double to the gap',
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      date: '2024-05-01'
+    },
+    {
+      title: 'Backhand play at short, quick release',
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      date: '2024-04-20'
+    }
+  ],
+
+  schedule: [
+    { date: '2025-03-12', opponent: 'Central HS', location: 'Home', result: 'W 6–2', link: '#' },
+    { date: '2025-03-18', opponent: 'Westview', location: 'Away', result: 'L 2–3' }
+  ],
+
+  photos: { active: { heroImage: '/hero.svg', featuredAction: '/hero.svg' } },
+  recruitingPacket: { url: '#' },
+
+  performance: [
+    {
+      metric: 'Vertical Jump',
+      value: 6,
+      unit: 'in',
+      measuredAt: '2024-01-01',
+      notes: 'To be updated with latest measurement',
+      source: 'Team Combine 2024'
+    }
+  ],
+
+  seo: {
+    title: 'Lana Nolan — Player Profile',
+    description: 'Modern player profile and dashboard'
+  }
+};

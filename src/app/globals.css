@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Tokens from Style Guide */
+:root {
+  /* Brand Green */
+  --brand-green: #26A84A;
+  --brand-green-dark: #1B6F35;
+
+  /* Neutral Base */
+  --bg: #f8fafc;        /* slate-50 */
+  --fg: #1e293b;        /* slate-800 */
+
+  /* Accents */
+  --accent-warm: #f4b400;     /* gold */
+  --accent-cool: #06b6d4;     /* cyan-500 */
+  --accent-cool-dark: #0e7490;/* cyan-700 */
+
+  /* Hero Gradient Stops */
+  --hero-from: #1b6f35;  /* deep green */
+  --hero-to: #06b6d4;    /* cyan */
+}
+
+html { color-scheme: light; }
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* Utilities and Components */
+@layer components {
+  .card { @apply rounded-2xl bg-white shadow-sm; }
+  .card-hover { @apply transition hover:shadow-lg; }
+  .heading-xl {
+    font-family: var(--font-bebas), var(--font-inter), system-ui, sans-serif;
+    font-size: clamp(2.625rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    letter-spacing: 0.015em;
+  }
+}
+
+@layer utilities {
+  .hero-overlay {
+    background-image: linear-gradient(to bottom right, var(--hero-from), var(--hero-to));
+    opacity: 0.15;
+  }
+}
+
+/* Accessibility: visible focus and reduced motion */
+:focus-visible { outline: 2px solid var(--accent-cool); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
