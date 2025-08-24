@@ -60,7 +60,15 @@ export default function DashboardSchedulePage() {
   function addRow() {
     setForm((prev) => {
       const next = [...(prev.schedule ?? [])];
-      next.push({ date: '', opponent: '', location: '', result: '', link: '' });
+      next.push({ type: 'game', date: '', opponent: '', location: '', result: '', link: '' });
+      return { ...prev, schedule: next };
+    });
+  }
+
+  function addPractice() {
+    setForm((prev) => {
+      const next = [...(prev.schedule ?? [])];
+      next.push({ type: 'practice', date: '', opponent: 'Practice', location: '', result: '', link: '' });
       return { ...prev, schedule: next };
     });
   }
@@ -83,6 +91,7 @@ export default function DashboardSchedulePage() {
             <thead>
               <tr className="text-left text-sm text-slate-500">
                 <th className="pr-4">Date</th>
+                <th className="pr-4">Type</th>
                 <th className="pr-4">Opponent</th>
                 <th className="pr-4">Location</th>
                 <th className="pr-4">Result</th>
@@ -118,11 +127,23 @@ export default function DashboardSchedulePage() {
                     </td>
                     <td className="pr-4">
                       <div className={group}>
+                        <select
+                          className={field}
+                          value={row.type ?? 'game'}
+                          onChange={(e) => updateRow(i, { type: e.target.value as 'game' | 'practice' })}
+                        >
+                          <option value="game">Game</option>
+                          <option value="practice">Practice</option>
+                        </select>
+                      </div>
+                    </td>
+                    <td className="pr-4">
+                      <div className={group}>
                         <input
                           className={field}
                           value={row.opponent ?? ''}
                           onChange={(e) => updateRow(i, { opponent: e.target.value })}
-                          placeholder="e.g. Central HS"
+                          placeholder={((row.type ?? 'game') === 'practice') ? 'e.g. Team Practice' : 'e.g. Central HS'}
                         />
                         {errorMap.get(`${base}.opponent`)?.map((m, k) => (
                           <p key={k} className="text-xs text-red-600">{m}</p>
@@ -146,6 +167,7 @@ export default function DashboardSchedulePage() {
                           value={row.result ?? ''}
                           onChange={(e) => updateRow(i, { result: e.target.value })}
                           placeholder="e.g. W 6–2"
+                          disabled={(row.type ?? 'game') === 'practice'}
                         />
                       </div>
                     </td>
@@ -155,7 +177,8 @@ export default function DashboardSchedulePage() {
                           className={field}
                           value={row.link ?? ''}
                           onChange={(e) => updateRow(i, { link: e.target.value })}
-                          placeholder="Optional link (e.g. game recap)"
+                          placeholder={((row.type ?? 'game') === 'practice') ? 'Optional link' : 'Optional link (e.g. game recap)'}
+                          disabled={(row.type ?? 'game') === 'practice'}
                         />
                       </div>
                     </td>
@@ -177,6 +200,7 @@ export default function DashboardSchedulePage() {
 
         <div className="flex items-center gap-3">
           <button className={btnPrimary} onClick={addRow}>Add Game</button>
+          <button className={btnGhost} onClick={addPractice}>Add Practice</button>
           <span className="text-sm text-slate-500">Validation and persistence run automatically.</span>
         </div>
       </div>

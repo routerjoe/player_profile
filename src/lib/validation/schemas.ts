@@ -29,7 +29,8 @@ export const StatSchema = z.object({
 
 export const HighlightSchema = z.object({
   title: z.string().optional(),
-  videoUrl: z.string().url(),
+  // Allow empty until upload completes or a URL is set
+  videoUrl: z.string().url().optional(),
   thumbnailUrl: z.string().url().optional(),
   date: z.string().optional(),
   isFeatured: z.boolean().optional(),
@@ -37,8 +38,9 @@ export const HighlightSchema = z.object({
 });
 
 export const ScheduleEntrySchema = z.object({
+  type: z.enum(['game', 'practice']).optional(),
   date: z.string(),
-  opponent: z.string(),
+  opponent: z.string().optional(),
   location: z.string().optional(),
   result: z.string().optional(),
   link: z.string().optional(),

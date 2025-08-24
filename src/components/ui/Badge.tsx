@@ -13,7 +13,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 export function Badge({ variant = 'neutral', className = '', ...props }: BadgeProps) {
   const styles: Record<Variant, string> = {
     brand:
-      'bg-[color:var(--brand-green)]/10 text-[color:var(--brand-green)] ring-1 ring-[color:var(--brand-green)]/20',
+      'bg-white text-black ring-1 ring-[color:var(--brand-green)]/30',
     outline:
       'bg-white text-[color:var(--fg)] ring-1 ring-slate-300',
     neutral:

@@ -7,8 +7,6 @@ import {
   saveBlogIndex,
   upsertPost,
   removePost,
-  exportBlogIndex,
-  importBlogIndex,
   subscribeBlogIndex,
   slugify,
 } from '@/lib/dashboard/blogStorage';
@@ -78,8 +76,6 @@ export default function DashboardBlogPage() {
   const [draft, setDraft] = useState<BlogPost | null>(null);
   const [errors, setErrors] = useState<Issue[] | undefined>(undefined);
   const [status, setStatus] = useState<string | null>(null);
-  const [importText, setImportText] = useState('');
-  const [importResult, setImportResult] = useState<{ ok: boolean; issues?: Issue[] } | null>(null);
 
   // Load initial index from localStorage (or seed with sample)
   useEffect(() => {
@@ -216,21 +212,6 @@ export default function DashboardBlogPage() {
     }
   }
 
-  // Import/export helpers
-  function onImport() {
-    const res = importBlogIndex(importText);
-    if (res.valid) {
-      const idx = getDraftIndex();
-      if (idx) {
-        setIndex(idx);
-        const slug = idx.posts[0]?.slug ?? '';
-        select(slug);
-      }
-      setImportResult({ ok: true });
-    } else {
-      setImportResult({ ok: false, issues: res.errors });
-    }
-  }
 
   // Draft setters
   function set<K extends keyof BlogPost>(key: K, value: BlogPost[K]) {
@@ -301,43 +282,6 @@ export default function DashboardBlogPage() {
             ))}
           </ul>
 
-          {/* Import/Export */}
-          <div className={section}>
-            <h3 className={sectionTitle}>Import / Export</h3>
-            <div className="space-y-2">
-              <label className={label}>Export JSON</label>
-              <textarea className={area} readOnly value={exportBlogIndex(true)} />
-            </div>
-            <div className="space-y-2">
-              <label className={label}>Import JSON</label>
-              <textarea
-                className={area}
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder="{ ... }"
-              />
-              <div className="flex items-center gap-2">
-                <button className={btnPrimary} onClick={onImport}>Validate & Import</button>
-              </div>
-              {importResult?.ok === false && importResult.issues ? (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-2">
-                  <p className="text-sm font-medium text-red-800">Validation issues</p>
-                  <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
-                    {importResult.issues.map((i, k) => (
-                      <li key={k}>
-                        <code>{i.path || '(root)'}</code> — {i.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {importResult?.ok === true ? (
-                <div className="rounded-md border border-green-200 bg-green-50 p-2 text-sm text-green-800">
-                  Import successful
-                </div>
-              ) : null}
-            </div>
-          </div>
         </aside>
 
         {/* Right: editor */}

@@ -44,7 +44,7 @@ body {
 @layer utilities {
   .hero-overlay {
     background-image: linear-gradient(to bottom right, var(--hero-from), var(--hero-to));
-    opacity: 0.15;
+    opacity: var(--hero-overlay-opacity, 0.15);
   }
 }
 

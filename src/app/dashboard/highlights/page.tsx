@@ -47,6 +47,47 @@ export default function DashboardHighlightsPage() {
   }, [errors]);
 
   const highlights: Highlight[] = form.highlights ?? [];
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [uploadPct, setUploadPct] = useState<Record<number, number>>({});
+
+  async function uploadVideo(index: number, file: File) {
+    setUploading(index);
+    setUploadPct((p) => ({ ...p, [index]: 0 }));
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('alt', highlights[index]?.title || `highlight-${index + 1}`);
+
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/media/upload', true);
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          const pct = Math.round((evt.loaded / evt.total) * 100);
+          setUploadPct((p) => ({ ...p, [index]: pct }));
+        }
+      };
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          setUploading(null);
+          try {
+            const data = JSON.parse(xhr.responseText || '{}');
+            if (xhr.status >= 200 && xhr.status < 300 && data?.url) {
+              updateRow(index, { videoUrl: data.url });
+            } else {
+              // eslint-disable-next-line no-console
+              console.error('Upload failed', data?.error || xhr.statusText);
+            }
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('Upload failed', err);
+          }
+          resolve();
+        }
+      };
+      xhr.send(fd);
+    });
+  }
 
   function updateRow(index: number, patch: Partial<Highlight>) {
     setForm((prev) => {
@@ -115,12 +156,46 @@ export default function DashboardHighlightsPage() {
                     </td>
                     <td className="pr-4">
                       <div className={group}>
-                        <input
-                          className={field}
-                          value={row.videoUrl ?? ''}
-                          onChange={(e) => updateRow(i, { videoUrl: e.target.value })}
-                          placeholder="https://..."
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            className={field + ' flex-1'}
+                            value={row.videoUrl ?? ''}
+                            onChange={(e) => updateRow(i, { videoUrl: e.target.value })}
+                            placeholder="https://..."
+                          />
+                          <label className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer">
+                            {uploading === i ? 'Uploading...' : 'Upload'}
+                            <input
+                              type="file"
+                              accept="video/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) uploadVideo(i, f);
+                                e.currentTarget.value = '';
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <div className="mt-2">
+                          {uploading === i ? (
+                            (uploadPct[i] ?? 0) > 0 && (uploadPct[i] ?? 0) < 100 ? (
+                              <div>
+                                <div className="h-2 bg-slate-200 rounded">
+                                  <div
+                                    className="h-2 bg-[var(--brand-green)] rounded"
+                                    style={{ width: `${uploadPct[i] ?? 0}%` }}
+                                  />
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-1">{uploadPct[i] ?? 0}%</div>
+                              </div>
+                            ) : (
+                              <div className="h-2 bg-slate-200 rounded overflow-hidden">
+                                <div className="h-2 bg-[var(--brand-green)] animate-pulse w-1/3" />
+                              </div>
+                            )
+                          ) : null}
+                        </div>
                         {errorMap.get(`${base}.videoUrl`)?.map((m, k) => (
                           <p key={k} className="text-xs text-red-600">{m}</p>
                         ))}

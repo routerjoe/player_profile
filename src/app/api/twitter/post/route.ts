@@ -1,7 +1,14 @@
-import { NextResponse } from 'next/server';
-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const json = (data: any, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(data), {
+    ...init,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      ...(init.headers || {}),
+    },
+  });
 
 /**
  * Twitter post API (stub)
@@ -13,11 +20,11 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const text = typeof body?.text === 'string' ? body.text : '';
     if (!text || text.length < 3) {
-      return NextResponse.json({ error: 'Missing or invalid text' }, { status: 400 });
+      return json({ error: 'Missing or invalid text' }, { status: 400 });
     }
 
     const id = `tweet_${Math.random().toString(36).slice(2, 10)}`;
-    return NextResponse.json({
+    return json({
       ok: true,
       id,
       text,
@@ -29,9 +36,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message ?? 'Post failed' },
-      { status: 500 },
-    );
+    return json({ error: err?.message ?? 'Post failed' }, { status: 500 });
   }
 }

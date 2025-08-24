@@ -24,16 +24,22 @@ function fromComma(s: string): string[] {
 }
 
 export default function DashboardProfilePage() {
-  // Initialize from last valid draft or bundled sample
-  const [form, setForm] = useState<Profile>(() => getDraft() ?? sampleProfile);
+  // Initialize to bundled sample so SSR/CSR match; then hydrate from persisted draft after mount
+  const [form, setForm] = useState<Profile>(sampleProfile);
   const [valid, setValid] = useState(true);
   const [errors, setErrors] = useState<Issue[] | undefined>(undefined);
+  const [positionsInput, setPositionsInput] = useState<string>(() => toComma((getDraft() ?? sampleProfile).positions));
 
   useEffect(() => {
-    // Ensure we bootstrap once from persisted draft if newer than sample
+    // Hydrate once from persisted last-valid draft (if any) to avoid hydration mismatches
     const persisted = getDraft();
     if (persisted) setForm(persisted);
   }, []);
+
+  // Keep positions input in sync when form.positions changes (e.g., load/hydrate)
+  useEffect(() => {
+    setPositionsInput(toComma(form.positions));
+  }, [form.positions]);
 
   // Persist on every change with Zod validation
   useEffect(() => {
@@ -103,8 +109,10 @@ export default function DashboardProfilePage() {
                 <label className={label}>Positions (comma-separated)</label>
                 <input
                   className={field}
-                  value={toComma(form.positions)}
-                  onChange={(e) => set('positions', fromComma(e.target.value))}
+                  value={positionsInput}
+                  onChange={(e) => setPositionsInput(e.target.value)}
+                  onBlur={() => set('positions', fromComma(positionsInput))}
+                  placeholder="e.g. SS, 2B"
                 />
               </div>
               <div className={group}>
@@ -232,11 +240,12 @@ export default function DashboardProfilePage() {
               </div>
             </div>
             <div className={group}>
-              <label className={label}>Coursework (comma-separated)</label>
+              <label className={label}>Academic Achievements</label>
               <input
                 className={field}
                 value={toComma(form.coursework)}
                 onChange={(e) => set('coursework', fromComma(e.target.value))}
+                placeholder="e.g. Honor Roll, AP English, National Honor Society"
               />
             </div>
           </div>
@@ -246,11 +255,40 @@ export default function DashboardProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className={group}>
                 <label className={label}>Recruiting Packet URL</label>
-                <input
-                  className={field}
-                  value={form.recruitingPacket?.url ?? ''}
-                  onChange={(e) => set('recruitingPacket', { url: e.target.value })}
-                />
+                <div className="flex gap-2">
+                  <input
+                    className={field + ' flex-1'}
+                    value={form.recruitingPacket?.url ?? ''}
+                    onChange={(e) => set('recruitingPacket', { url: e.target.value })}
+                  />
+                  <label className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer">
+                    Upload PDF
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const input = e.currentTarget as HTMLInputElement | null;
+                        const f = input?.files?.[0];
+                        if (!f) return;
+                        try {
+                          const fd = new FormData();
+                          fd.append('file', f);
+                          fd.append('alt', 'recruiting-packet');
+                          const res = await fetch('/api/media/upload', { method: 'POST', body: fd, credentials: 'include' });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok || !data?.url) throw new Error(data?.error || 'Upload failed');
+                          set('recruitingPacket', { url: data.url });
+                        } catch (err) {
+                          // eslint-disable-next-line no-console
+                          console.error('PDF upload failed', err);
+                        } finally {
+                          if (input) input.value = '';
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

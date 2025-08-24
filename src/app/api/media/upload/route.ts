@@ -1,4 +1,15 @@
-import { NextResponse } from 'next/server';
+/**
+ * Use the standard Web Response instead of NextResponse to avoid
+ * package export alias resolution issues in some environments.
+ */
+const json = (data: any, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(data), {
+    ...init,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      ...(init.headers || {}),
+    },
+  });
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,7 +23,7 @@ export async function POST(req: Request) {
   try {
     const contentType = req.headers.get('content-type') || '';
     if (!contentType.includes('multipart/form-data')) {
-      return NextResponse.json(
+      return json(
         { error: 'Expected multipart/form-data' },
         { status: 400 },
       );
@@ -23,7 +34,7 @@ export async function POST(req: Request) {
     const alt = form.get('alt')?.toString() || '';
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'Missing file field' }, { status: 400 });
+      return json({ error: 'Missing file field' }, { status: 400 });
     }
 
     // Stub: pretend we uploaded to remote storage and return a stable URL.
@@ -31,7 +42,7 @@ export async function POST(req: Request) {
     const safeName = encodeURIComponent(file.name || 'upload.bin');
     const url = `https://example-cdn.invalid/uploads/${safeName}`;
 
-    return NextResponse.json({
+    return json({
       url,
       alt,
       size: file.size,
@@ -40,7 +51,7 @@ export async function POST(req: Request) {
       provider: 'stub',
     });
   } catch (err: any) {
-    return NextResponse.json(
+    return json(
       { error: err?.message ?? 'Upload failed' },
       { status: 500 },
     );

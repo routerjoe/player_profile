@@ -1,0 +1,67 @@
+[
+  {
+    "id": "829edf71-5e3c-4598-a35b-b1b8ae7a7abc",
+    "playerId": "demo",
+    "url": "/uploads/demo/829edf71-5e3c-4598-a35b-b1b8ae7a7abc.png",
+    "originalName": "A565EE0C-4CA2-4307-8656-9639ECCC522F.png",
+    "title": "Working on my litte dump truck",
+    "alt": "",
+    "usage": "unassigned",
+    "sizeBytes": 2886293,
+    "mimeType": "image/png",
+    "createdAt": "2025-08-23T15:17:28.234Z",
+    "updatedAt": "2025-08-24T17:25:04.797Z"
+  },
+  {
+    "id": "17c51f0f-7009-42ca-ad6c-7485a7970fe8",
+    "playerId": "demo",
+    "url": "/uploads/demo/17c51f0f-7009-42ca-ad6c-7485a7970fe8.jpg",
+    "originalName": "IMG_1563.jpeg",
+    "title": "Hitting",
+    "alt": "",
+    "usage": "social",
+    "sizeBytes": 3079448,
+    "mimeType": "image/jpeg",
+    "createdAt": "2025-08-23T15:18:50.753Z",
+    "updatedAt": "2025-08-24T17:06:49.794Z"
+  },
+  {
+    "id": "b58006b0-9e69-4333-a983-55a4d5c64185",
+    "playerId": "demo",
+    "url": "/uploads/demo/b58006b0-9e69-4333-a983-55a4d5c64185.jpg",
+    "originalName": "IMG_1679.jpeg",
+    "title": "IMG_1679",
+    "alt": "",
+    "usage": "banner",
+    "sizeBytes": 174689,
+    "mimeType": "image/jpeg",
+    "createdAt": "2025-08-24T17:05:59.528Z",
+    "updatedAt": "2025-08-24T17:06:24.212Z"
+  },
+  {
+    "id": "5f3a1fb5-0b8b-486e-84cc-0d1ec7c80d43",
+    "playerId": "demo",
+    "url": "/uploads/demo/5f3a1fb5-0b8b-486e-84cc-0d1ec7c80d43.jpg",
+    "originalName": "IMG_1488.jpeg",
+    "title": "IMG_1488",
+    "alt": "",
+    "usage": "hero",
+    "sizeBytes": 2835929,
+    "mimeType": "image/jpeg",
+    "createdAt": "2025-08-24T17:05:59.556Z",
+    "updatedAt": "2025-08-24T17:25:04.797Z"
+  },
+  {
+    "id": "d1f3a6e9-c0f4-498f-b8e7-a0f437beb757",
+    "playerId": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
+    "url": "/uploads/5c27e367-b4c8-483c-bfd7-e3c91d24cb73/d1f3a6e9-c0f4-498f-b8e7-a0f437beb757.jpg",
+    "originalName": "IMG_1527.jpeg",
+    "title": "Hitting in Ashville",
+    "alt": "",
+    "usage": "hero",
+    "sizeBytes": 2420656,
+    "mimeType": "image/jpeg",
+    "createdAt": "2025-08-24T18:43:50.087Z",
+    "updatedAt": "2025-08-24T18:44:10.840Z"
+  }
+]

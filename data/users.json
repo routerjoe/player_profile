@@ -1,0 +1,32 @@
+[
+  {
+    "id": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
+    "username": "lananolan",
+    "email": "lananolan08@gmail.com",
+    "role": "player",
+    "playerId": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
+    "passwordHash": "scrypt$16384$8$1$pkMB7A5VdSwT2V+aOaCkVQ==$Mt/DhQkS9zbI8MGwVVuuAR4+K3ZivSMlT8T7zmYLhfo8qt5wZVTSr0J1jknV8fqnJL2t8dvnK5AV4Ca5v88dvg==",
+    "createdAt": "2025-08-23T16:00:31.296Z",
+    "updatedAt": "2025-08-24T16:12:15.939Z",
+    "socials": {
+      "twitter": "lananolan08",
+      "instagram": "lananolan08"
+    },
+    "theme": {
+      "heroFrame": "#d9e42f",
+      "heroFill": "#d436ff",
+      "heroOverlayOpacity": 0.6,
+      "heroOverlayEnabled": true
+    }
+  },
+  {
+    "id": "d4b86d5a-30f5-4108-84ee-7589d9ec055b",
+    "username": "demo1",
+    "email": "demo1@example.com",
+    "role": "player",
+    "playerId": "d4b86d5a-30f5-4108-84ee-7589d9ec055b",
+    "passwordHash": "scrypt$16384$8$1$zQQa7i7OmjcRUK0FNXl91Q==$xc4IddFrzNffyuvpiGaGubzAYXGPhso8qjFa/DHU1OWpW1bf/Yz+qFzkc35Cm4DdheGgbFzNyoOJ04MDqB6qxA==",
+    "createdAt": "2025-08-23T19:19:27.846Z",
+    "updatedAt": "2025-08-23T19:19:27.846Z"
+  }
+]
