@@ -77,7 +77,7 @@ export default async function HomePage({ searchParams }: { searchParams?: { play
         />
         <QuickStats profile={profile} />
         <Performance profile={profile} />
-        <BioAcademics profile={profile} />
+        <BioAcademics profile={profile} playerId={playerId} />
         <Highlights profile={profile} />
         <Schedule profile={profile} />
         <RecruitingPacket profile={profile} />

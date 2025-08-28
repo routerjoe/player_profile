@@ -1,7 +1,19 @@
 import { randomBytes, scrypt as _scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 
-const scryptAsync = promisify(_scrypt);
+async function scryptPromise(
+  password: string | Buffer,
+  salt: string | Buffer,
+  keylen: number,
+  opts: { N: number; r: number; p: number },
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    (_scrypt as any)(password, salt, keylen, opts as any, (err: any, derivedKey: Buffer) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+}
 
 export interface ScryptParams {
   N: number;
@@ -28,7 +40,7 @@ export async function hashPassword(
 ): Promise<string> {
   const salt = randomBytes(16);
   const { N, r, p, keylen } = params;
-  const buf = (await scryptAsync(password, salt, keylen, { N, r, p })) as Buffer;
+  const buf = await scryptPromise(password, salt, keylen, { N, r, p });
   return `scrypt$${N}$${r}$${p}$${salt.toString('base64')}$${buf.toString('base64')}`;
 }
 
@@ -45,7 +57,7 @@ export async function verifyPassword(stored: string, password: string): Promise<
     const salt = Buffer.from(parts[4], 'base64');
     const hash = Buffer.from(parts[5], 'base64');
     const keylen = hash.length;
-    const calc = (await scryptAsync(password, salt, keylen, { N, r, p })) as Buffer;
+    const calc = await scryptPromise(password, salt, keylen, { N, r, p });
     // Constant-time compare
     return timingSafeEqual(calc, hash);
   } catch {

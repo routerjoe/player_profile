@@ -1,3 +1,7 @@
+import { randomUUID } from 'crypto';
+import { getSessionFromRequest } from '@/lib/users/session';
+import { urlForUpload, absolutePathForUrl, saveFileFromBuffer } from '@/lib/photos/fs';
+
 /**
  * Use the standard Web Response instead of NextResponse to avoid
  * package export alias resolution issues in some environments.
@@ -15,18 +19,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Media upload API (stub)
- * Accepts multipart/form-data with a "file" field and returns a fake remote URL.
- * This is a stub for Milestone E; wire to Supabase/S3 in a later milestone.
+ * Media upload API (local)
+ * Accepts multipart/form-data with a "file" field and writes to /public/uploads/{playerId}/{id}.{ext}
+ * Returns a public URL under /uploads/... which can be embedded (e.g., PDF in Recruiting Packet).
  */
 export async function POST(req: Request) {
   try {
     const contentType = req.headers.get('content-type') || '';
     if (!contentType.includes('multipart/form-data')) {
-      return json(
-        { error: 'Expected multipart/form-data' },
-        { status: 400 },
-      );
+      return json({ error: 'Expected multipart/form-data' }, { status: 400 });
     }
 
     const form = await req.formData();
@@ -37,23 +38,42 @@ export async function POST(req: Request) {
       return json({ error: 'Missing file field' }, { status: 400 });
     }
 
-    // Stub: pretend we uploaded to remote storage and return a stable URL.
-    // In a real implementation, you would stream to Supabase/S3 and return the resulting URL.
-    const safeName = encodeURIComponent(file.name || 'upload.bin');
-    const url = `https://example-cdn.invalid/uploads/${safeName}`;
+    // Resolve playerId from session (preferred), dev header fallback, else 'demo'
+    const sess = getSessionFromRequest(req);
+    let playerId = (sess?.playerId || sess?.sub || '').toString();
+    if (!playerId) {
+      const devId = req.headers.get('x-user-id') || '';
+      playerId = devId || 'demo';
+    }
+
+    // Derive extension from MIME or filename
+    const type = (file.type || '').toLowerCase();
+    let ext = '';
+    if (type.includes('/')) ext = type.split('/')[1] || '';
+    if (!ext) {
+      const name = file.name || '';
+      const i = name.lastIndexOf('.');
+      if (i >= 0) ext = name.slice(i + 1);
+    }
+    ext = (ext || 'bin').toLowerCase().replace(/^jpeg$/, 'jpg');
+
+    const id = randomUUID();
+    const publicUrl = urlForUpload(playerId, id, ext);
+    const absPath = absolutePathForUrl(publicUrl);
+
+    // Write file bytes to disk
+    const buf = Buffer.from(await file.arrayBuffer());
+    await saveFileFromBuffer(absPath, buf);
 
     return json({
-      url,
+      url: publicUrl,
       alt,
       size: file.size,
       type: file.type,
       uploadedAt: new Date().toISOString(),
-      provider: 'stub',
+      provider: 'local',
     });
   } catch (err: any) {
-    return json(
-      { error: err?.message ?? 'Upload failed' },
-      { status: 500 },
-    );
+    return json({ error: err?.message ?? 'Upload failed' }, { status: 500 });
   }
 }

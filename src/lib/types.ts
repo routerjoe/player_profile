@@ -6,7 +6,7 @@ export interface Contact { email?: string; website?: string; phone?: string }
 export interface Twitter { handle?: string }
 
 export interface Stat { label: string; value: string; season?: string; notes?: string }
-export interface Highlight { title: string; videoUrl: string; thumbnailUrl?: string; date?: string; isFeatured?: boolean; notes?: string }
+export interface Highlight { title?: string; videoUrl?: string; thumbnailUrl?: string; date?: string; isFeatured?: boolean; notes?: string }
 export interface ScheduleEntry { type?: 'game' | 'practice'; date: string; opponent?: string; location?: string; result?: string; link?: string }
 export interface GalleryImage { url: string; alt: string }
 export interface Photos { active?: { heroImage?: string; featuredAction?: string }; gallery?: GalleryImage[] }

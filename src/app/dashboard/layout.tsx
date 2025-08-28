@@ -7,11 +7,8 @@ import { getDraft } from '@/lib/dashboard/storage';
 
 const tabs = [
   { href: '/dashboard/profile', label: 'Profile' },
-  { href: '/dashboard/stats', label: 'Stats' },
-  { href: '/dashboard/highlights', label: 'Highlights' },
-  { href: '/dashboard/schedule', label: 'Schedule' },
-  { href: '/dashboard/performance', label: 'Performance' },
-  { href: '/dashboard/photos', label: 'Photos' },
+  { href: '/dashboard/athletics', label: 'Athletics' }, // Stats + Performance + Teams + Schedule
+  { href: '/dashboard/media', label: 'Media' },         // Photos + Highlights
   { href: '/dashboard/blog', label: 'Blog' },
   { href: '/dashboard/settings', label: 'Settings' },
 ];

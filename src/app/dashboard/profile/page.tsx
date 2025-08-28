@@ -64,6 +64,85 @@ export default function DashboardProfilePage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Recruiting Packet PDF manager state and helpers
+  type PacketFile = { id: string; filename: string; url: string; size: number; modifiedAt: string };
+
+  const [playerId, setPlayerId] = useState<string>('');
+  const [packets, setPackets] = useState<PacketFile[]>([]);
+  const [loadingPackets, setLoadingPackets] = useState<boolean>(false);
+
+  const devHeaders = (): Record<string, string> => {
+    if (typeof window === 'undefined') return {};
+    const id = window.localStorage.getItem('pp_user_id') || '';
+    return id ? { 'x-user-id': id } : {};
+  };
+
+  async function resolvePlayerId(): Promise<string> {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const j = await res.json();
+        const id = j?.user?.playerId || j?.user?.id || '';
+        if (id) return id;
+      }
+    } catch {}
+    const local = typeof window !== 'undefined' ? window.localStorage.getItem('pp_user_id') || '' : '';
+    return local || (process.env.NEXT_PUBLIC_DEFAULT_PLAYER_ID || 'demo');
+  }
+
+  async function loadPackets(forPlayer?: string): Promise<PacketFile[]> {
+    const pid = forPlayer || playerId;
+    if (!pid) return [];
+    setLoadingPackets(true);
+    try {
+      const res = await fetch(`/api/players/${encodeURIComponent(pid)}/recruiting/packets`, {
+        credentials: 'include',
+        headers: { ...devHeaders() },
+        cache: 'no-store',
+      });
+      const j = await res.json().catch(() => ({}));
+      const files = Array.isArray(j?.files) ? (j.files as PacketFile[]) : [];
+      setPackets(files);
+      return files;
+    } finally {
+      setLoadingPackets(false);
+    }
+  }
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      const pid = await resolvePlayerId();
+      if (!ignore) {
+        setPlayerId(pid);
+        await loadPackets(pid);
+      }
+    })();
+    return () => { ignore = true; };
+  }, []);
+
+  async function deletePacket(id: string) {
+    if (!playerId) return;
+    if (!confirm('Delete this PDF?')) return;
+    const selected = form.recruitingPacket?.url || '';
+    try {
+      const res = await fetch(
+        `/api/players/${encodeURIComponent(playerId)}/recruiting/packets/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: { ...devHeaders() },
+        },
+      );
+      await res.json().catch(() => ({}));
+    } finally {
+      const files = await loadPackets();
+      if (selected && !files.some((f) => f.url === selected)) {
+        set('recruitingPacket', undefined as any);
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-6 flex-col lg:flex-row">
@@ -260,6 +339,7 @@ export default function DashboardProfilePage() {
                     className={field + ' flex-1'}
                     value={form.recruitingPacket?.url ?? ''}
                     onChange={(e) => set('recruitingPacket', { url: e.target.value })}
+                    placeholder="/uploads/{playerId}/packet.pdf or https://..."
                   />
                   <label className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer">
                     Upload PDF
@@ -275,10 +355,16 @@ export default function DashboardProfilePage() {
                           const fd = new FormData();
                           fd.append('file', f);
                           fd.append('alt', 'recruiting-packet');
-                          const res = await fetch('/api/media/upload', { method: 'POST', body: fd, credentials: 'include' });
+                          const res = await fetch('/api/media/upload', {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'include',
+                            headers: { ...devHeaders() },
+                          });
                           const data = await res.json().catch(() => ({}));
                           if (!res.ok || !data?.url) throw new Error(data?.error || 'Upload failed');
                           set('recruitingPacket', { url: data.url });
+                          await loadPackets();
                         } catch (err) {
                           // eslint-disable-next-line no-console
                           console.error('PDF upload failed', err);
@@ -288,6 +374,67 @@ export default function DashboardProfilePage() {
                       }}
                     />
                   </label>
+                </div>
+
+                {/* PDF manager list */}
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-slate-800">Available PDFs</p>
+                    {loadingPackets ? <span className="text-xs text-slate-500">Loading…</span> : null}
+                  </div>
+                  {(!packets || packets.length === 0) && !loadingPackets ? (
+                    <p className="text-sm text-slate-500 mt-2">
+                      No PDFs found in uploads. Use “Upload PDF” to add one.
+                    </p>
+                  ) : null}
+                  {packets && packets.length > 0 ? (
+                    <ul className="mt-2 space-y-2">
+                      {packets.map((f) => {
+                        const selected = form.recruitingPacket?.url === f.url;
+                        return (
+                          <li key={f.id} className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm text-slate-800 truncate">{f.filename}</div>
+                              <div className="text-[11px] text-slate-500">
+                                {new Date(f.modifiedAt).toLocaleString()} • {(f.size / 1024).toFixed(1)} KB
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {selected ? (
+                                <span className="text-xs rounded-md bg-green-100 px-2 py-1 text-green-700">Selected</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="px-2 py-1 rounded-lg text-sm border text-slate-700 hover:bg-slate-100"
+                                  onClick={() => set('recruitingPacket', { url: f.url })}
+                                  title="Use this PDF"
+                                >
+                                  Use
+                                </button>
+                              )}
+                              <a
+                                className="px-2 py-1 rounded-lg text-sm border text-slate-700 hover:bg-slate-100"
+                                href={f.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Open"
+                              >
+                                Open
+                              </a>
+                              <button
+                                type="button"
+                                className="px-2 py-1 rounded-lg text-sm border text-slate-700 hover:bg-slate-100"
+                                onClick={() => deletePacket(f.id)}
+                                title="Delete"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
                 </div>
               </div>
             </div>

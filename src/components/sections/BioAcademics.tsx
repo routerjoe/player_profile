@@ -3,9 +3,11 @@ import { Profile } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/Card';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { Badge } from '@/components/ui/Badge';
+import { SchoolTravelTeams } from '@/components/player/SchoolTravelTeams';
 
 interface Props {
   profile: Profile;
+  playerId: string;
 }
 
 /**
@@ -14,7 +16,7 @@ interface Props {
  * - Uses badges for positions
  * - GPA and coursework list in a card
  */
-export function BioAcademics({ profile }: Props) {
+export function BioAcademics({ profile, playerId }: Props) {
   const fullName = `${profile.name.first} ${profile.name.last}`;
   const positions = profile.positions ?? [];
   const loc = [profile.location?.city, profile.location?.state].filter(Boolean).join(', ');
@@ -71,6 +73,10 @@ export function BioAcademics({ profile }: Props) {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-4">
+        <SchoolTravelTeams playerId={playerId} />
       </div>
     </section>
   );

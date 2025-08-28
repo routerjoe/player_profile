@@ -1,0 +1,20 @@
+{
+  "5c27e367-b4c8-483c-bfd7-e3c91d24cb73": {
+    "playerId": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
+    "school": {
+      "teamName": "Loganville High School",
+      "coachName": "Bill Smith",
+      "coachEmail": "billsmith@loganvillehighschool.com",
+      "socials": [],
+      "isPublic": true
+    },
+    "travel": {
+      "teamName": "Killer Bees",
+      "coachName": "Bee Keeper",
+      "coachEmail": "coachbee@killerbees.com",
+      "socials": [],
+      "isPublic": true
+    },
+    "updatedAt": "2025-08-26T03:02:18.685Z"
+  }
+}
