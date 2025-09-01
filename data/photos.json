@@ -63,5 +63,18 @@
     "mimeType": "image/jpeg",
     "createdAt": "2025-08-24T18:43:50.087Z",
     "updatedAt": "2025-08-24T18:44:10.840Z"
+  },
+  {
+    "id": "7e5ed46c-9062-4be5-8a28-2d4a6f79fae4",
+    "playerId": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
+    "url": "/uploads/5c27e367-b4c8-483c-bfd7-e3c91d24cb73/7e5ed46c-9062-4be5-8a28-2d4a6f79fae4.jpg",
+    "originalName": "IMG_1629.jpeg",
+    "title": "IMG_1629",
+    "alt": "",
+    "usage": "social",
+    "sizeBytes": 3192732,
+    "mimeType": "image/jpeg",
+    "createdAt": "2025-09-01T22:04:25.779Z",
+    "updatedAt": "2025-09-01T22:05:20.563Z"
   }
 ]
