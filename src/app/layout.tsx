@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Inter, Bebas_Neue } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -13,7 +14,17 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${bebas.variable}`}>
-      <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">{children}</body>
+      <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
+        {children}
+        <footer className="mt-12 border-t border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-slate-600 flex items-center justify-between">
+            <span>© {new Date().getFullYear()} Player Profile</span>
+            <nav className="flex items-center gap-4">
+              <Link className="hover:underline" href="/blog">Blog</Link>
+            </nav>
+          </div>
+        </footer>
+      </body>
     </html>
   );
 }

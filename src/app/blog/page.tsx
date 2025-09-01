@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { getBlogIndex } from '@/lib/adapters/public/blog';
 
 export const dynamic = 'force-static';
@@ -21,22 +22,51 @@ export default async function BlogIndexPage() {
             {posts.map((p) => (
               <li key={p.slug} className="card card-hover p-6">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <h2 className="text-xl font-semibold">
-                      <Link className="hover:underline" href={`/blog/${p.slug}`}>
-                        {p.title}
+                  <div className="flex items-start gap-4">
+                    {p.heroImage ? (
+                      <Link
+                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-cool)] rounded-md"
+                        href={`/blog/${p.slug}`}
+                      >
+                        <div className="relative w-28 h-16 overflow-hidden rounded-md border border-slate-200 bg-white">
+                          {(/^https?:\/\//i.test(p.heroImage) || /\.svg($|\?)/i.test(p.heroImage)) ? (
+                            <img
+                              src={p.heroImage}
+                              alt={p.title}
+                              width={224}
+                              height={128}
+                              className="w-28 h-16 object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Image
+                              src={p.heroImage}
+                              alt={p.title}
+                              width={224}
+                              height={128}
+                              className="w-28 h-16 object-cover"
+                            />
+                          )}
+                        </div>
                       </Link>
-                    </h2>
-                    {p.summary ? (
-                      <p className="text-sm text-slate-600">{p.summary}</p>
                     ) : null}
-                    <div className="text-xs text-slate-500">
-                      {p.publishedAt ? new Date(p.publishedAt).toLocaleString() : null}
-                      {p.tags?.length ? (
-                        <span className="ml-2">
-                          • {p.tags.map((t) => `#${t}`).join(' ')}
-                        </span>
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-semibold">
+                        <Link className="hover:underline" href={`/blog/${p.slug}`}>
+                          {p.title}
+                        </Link>
+                      </h2>
+                      {p.summary ? (
+                        <p className="text-sm text-slate-600">{p.summary}</p>
                       ) : null}
+                      <div className="text-xs text-slate-500">
+                        {p.publishedAt ? new Date(p.publishedAt).toLocaleString() : null}
+                        {p.tags?.length ? (
+                          <span className="ml-2">
+                            • {p.tags.map((t) => `#${t}`).join(' ')}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                   <Link

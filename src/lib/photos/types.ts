@@ -3,8 +3,10 @@
 export type PhotoUsage =
   | 'unassigned'
   | 'hero'
+  | 'headshot'
   | 'gallery'
   | 'blog_cover'
+  | 'highlights_cover'
   | 'thumbnail'
   | 'banner'
   | 'social';

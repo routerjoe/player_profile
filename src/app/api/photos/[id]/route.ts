@@ -24,8 +24,10 @@ function badRequest(message: string) {
 const ALLOWED_USAGE = new Set([
   'unassigned',
   'hero',
+  'headshot',
   'gallery',
   'blog_cover',
+  'highlights_cover',
   'thumbnail',
   'banner',
   'social',

@@ -15,6 +15,9 @@ export default async function BlogPostPage({ params }: PageProps) {
   }
 
   const published = post.publishedAt ? new Date(post.publishedAt) : null;
+  const heroUrl = post.heroImage || '';
+  const isExternalHero = /^https?:\/\//i.test(heroUrl);
+  const isSvgHero = /\.svg($|\?)/i.test(heroUrl);
 
   return (
     <main className="min-h-screen">
@@ -38,15 +41,25 @@ export default async function BlogPostPage({ params }: PageProps) {
 
         {post.heroImage ? (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {/* Using next/image with fill requires a parent aspect wrapper; keep simple with width/height */}
-            <Image
-              src={post.heroImage}
-              alt={post.title}
-              width={1200}
-              height={630}
-              className="w-full h-auto object-cover"
-              priority
-            />
+            {/* Local uploads under /public use Next/Image; external/inline SVG fall back to img to avoid domain/SVG optimization issues */}
+            {(isExternalHero || isSvgHero) ? (
+              <img
+                src={post.heroImage}
+                alt={post.title}
+                width={1200}
+                height={630}
+                className="w-full h-auto object-cover"
+              />
+            ) : (
+              <Image
+                src={post.heroImage}
+                alt={post.title}
+                width={1200}
+                height={630}
+                className="w-full h-auto object-cover"
+                priority
+              />
+            )}
           </div>
         ) : null}
 

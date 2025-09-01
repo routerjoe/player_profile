@@ -14,8 +14,10 @@ export interface PhotoTileProps {
 const usageOptions: Array<{ value: PhotoUsage; label: string }> = [
   { value: 'unassigned', label: 'Unassigned' },
   { value: 'hero', label: 'Hero (Sports Card)' },
+  { value: 'headshot', label: 'Headshot' },
   { value: 'gallery', label: 'Gallery' },
   { value: 'blog_cover', label: 'Blog Cover' },
+  { value: 'highlights_cover', label: 'Highlights Cover' },
   { value: 'thumbnail', label: 'Thumbnail / Avatar' },
   { value: 'banner', label: 'Banner / Header' },
   { value: 'social', label: 'Social Preview' },

@@ -140,7 +140,34 @@ export async function deletePhoto(id: string): Promise<PhotoRecord> {
 /**
  * Get the hero photo for a given player, if any.
  */
-export async function getHeroPhoto(playerId: string): Promise<PhotoRecord | undefined> {
+/**
+ * Get specific usage photo (first match) for a given player.
+ */
+export async function getPhotoByUsage(playerId: string, usage: PhotoUsage): Promise<PhotoRecord | undefined> {
   const all = await readAll();
-  return all.find((r) => r.playerId === playerId && r.usage === 'hero');
+  return all.find((r) => r.playerId === playerId && r.usage === usage);
+}
+
+/**
+ * Get the hero photo for a given player, if any.
+ */
+export async function getHeroPhoto(playerId: string): Promise<PhotoRecord | undefined> {
+  return getPhotoByUsage(playerId, 'hero' as PhotoUsage);
+}
+
+/**
+ * Get the headshot photo for a given player, if any.
+ */
+export async function getHeadshotPhoto(playerId: string): Promise<PhotoRecord | undefined> {
+  return getPhotoByUsage(playerId, 'headshot' as PhotoUsage);
+}
+
+/**
+ * Get all photos for a given usage, newest first.
+ */
+export async function getPhotosByUsage(playerId: string, usage: PhotoUsage): Promise<PhotoRecord[]> {
+  const all = await readAll();
+  return all
+    .filter((r) => r.playerId === playerId && r.usage === usage)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

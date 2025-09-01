@@ -6,7 +6,9 @@ import { Highlights } from '@/components/sections/Highlights';
 import { Schedule } from '@/components/sections/Schedule';
 import { RecruitingPacket } from '@/components/sections/RecruitingPacket';
 import { Contact } from '@/components/sections/Contact';
-import { getHeroPhoto } from '@/lib/photos/service';
+import { BlogTeaser } from '@/components/sections/BlogTeaser';
+import { Gallery } from '@/components/sections/Gallery';
+import { getHeroPhoto, getPhotoByUsage } from '@/lib/photos/service';
 import { getThemeForPlayer } from '@/lib/users/public';
 import { cookies } from 'next/headers';
 import { verifySessionToken } from '@/lib/users/session';
@@ -55,9 +57,10 @@ export default async function HomePage({ searchParams }: { searchParams?: { play
   // Load published profile for the resolved player
   const profile = await getPublicProfile(playerId);
 
-  const [hero, theme] = await Promise.all([
+  const [hero, theme, highlightsCover] = await Promise.all([
     getHeroPhoto(playerId),
     getThemeForPlayer(playerId),
+    getPhotoByUsage(playerId, 'highlights_cover'),
   ]);
 
   const frameColor = theme?.heroFrame || 'var(--brand-green)';
@@ -78,7 +81,11 @@ export default async function HomePage({ searchParams }: { searchParams?: { play
         <QuickStats profile={profile} />
         <Performance profile={profile} />
         <BioAcademics profile={profile} playerId={playerId} />
-        <Highlights profile={profile} />
+        <Highlights profile={profile} coverUrl={highlightsCover?.url} />
+        {/* Gallery section after Highlights */}
+        <Gallery playerId={playerId} />
+        {/* Show recent blog posts after Gallery */}
+        <BlogTeaser />
         <Schedule profile={profile} />
         <RecruitingPacket profile={profile} />
         <Contact profile={profile} />

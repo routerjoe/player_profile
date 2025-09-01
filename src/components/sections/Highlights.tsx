@@ -6,6 +6,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading';
 
 interface Props {
   profile: Profile;
+  coverUrl?: string;
 }
 
 /**
@@ -15,15 +16,46 @@ interface Props {
  * - No layout shift via fixed aspect ratio container
  * - External links open in new tab with rel noopener
  */
-export function Highlights({ profile }: Props) {
+export function Highlights({ profile, coverUrl }: Props) {
   const clips = profile.highlights ?? [];
-  if (!clips.length) return null;
+  if (!clips.length && !coverUrl) return null;
+
+  const showCover = typeof coverUrl === 'string' && coverUrl.length > 0;
+  const isExtCover = showCover ? /^https?:\/\//i.test(coverUrl!) : false;
+  const isSvgCover = showCover ? /\.svg($|\?)/i.test(coverUrl!) : false;
 
   return (
     <section className="space-y-4">
       <SectionHeading as="h2" subtitle="Selected game clips and skills videos">
         Highlights
       </SectionHeading>
+
+      {showCover ? (
+        <Card className="overflow-hidden">
+          <div className="relative w-full pt-[42%] bg-slate-100">
+            {isExtCover || isSvgCover ? (
+              <img
+                src={coverUrl!}
+                alt="Highlights cover"
+                className="absolute inset-0 w-full h-full object-cover"
+                width={1600}
+                height={672}
+                loading="lazy"
+              />
+            ) : (
+              <Image
+                src={coverUrl!}
+                alt="Highlights cover"
+                fill
+                sizes="(max-width: 768px) 100vw, 100vw"
+                className="object-cover"
+                priority={false}
+              />
+            )}
+            <div className="absolute inset-0 ring-1 ring-black/5" />
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {clips.map((h, i) => {
