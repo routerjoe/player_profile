@@ -46,6 +46,78 @@ Conventions:
 
 
 
+- [ ] X Integration: Configure environment and dependencies
+  - Add env vars X_CLIENT_ID, X_CLIENT_SECRET, X_REDIRECT_URI, APP_URL, APP_SECRET, SESSION_PASSWORD in [.env.example](.env.example) and document them in [README.md](README.md). Include Render persistent volume mount for /data notes.
+  - Install prisma, @prisma/client, libsodium-wrappers, iron-session and initialize Prisma migration.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: SQLite + Prisma schema
+  - Add models SocialAccount, ScheduledPost, UserSocialPrefs to [prisma/schema.prisma](prisma/schema.prisma); run `npx prisma migrate dev -n init_social_x` creating file:/data/app.db.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: iron-session setup
+  - Create [src/lib/session.ts](src/lib/session.ts) with sessionOptions and typed IronSessionData per spec; ensure secure cookie settings in production.
+  - Use getIronSession in API routes to read/write session (userId, oauth state+verifier).
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: PKCE helpers
+  - Implement [src/lib/pkce.ts](src/lib/pkce.ts) to generate code_verifier and S256 code_challenge.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: libsodium crypto helpers
+  - Implement [src/lib/crypto.ts](src/lib/crypto.ts) using libsodium secretbox with key derived from APP_SECRET to encrypt/decrypt access/refresh tokens; tokens never sent to client.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: X OAuth + API wrapper
+  - Implement [src/lib/x-oauth.ts](src/lib/x-oauth.ts) for OAuth 2.0 PKCE (auth URL, callback exchange, refresh), media upload (v2), and tweet posting with scopes: tweet.read users.read tweet.write offline.access media.write. Add 429/5xx retry with exponential backoff (2 attempts).
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: API routes
+  - GET /api/x/auth-url → [src/app/api/x/auth-url/route.ts](src/app/api/x/auth-url/route.ts)
+  - GET /api/x/callback → [src/app/api/x/callback/route.ts](src/app/api/x/callback/route.ts)
+  - POST /api/x/disconnect → [src/app/api/x/disconnect/route.ts](src/app/api/x/disconnect/route.ts)
+  - POST /api/x/post → [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts)
+  - POST /api/x/schedule → [src/app/api/x/schedule/route.ts](src/app/api/x/schedule/route.ts)
+  - POST /api/x/retry → [src/app/api/x/retry/route.ts](src/app/api/x/retry/route.ts)
+  - Cron /api/cron/run-x-queue → [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Dashboard Settings UI — Social Connections
+  - Update [src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx) to show “Connect X” when disconnected; when connected show @handle, token expiry (relative), and a Disconnect button.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Composer (tweet now + single image)
+  - Add components [src/components/dashboard/XComposer.tsx](src/components/dashboard/XComposer.tsx) and wire to POST /api/x/post with textarea + char counter (warn > 280) and single image upload (server-side media upload).
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Scheduling
+  - Implement scheduling UI (ISO datetime) in settings; persist to ScheduledPost in [prisma/schema.prisma](prisma/schema.prisma). Cron route consumes due posts, uploads media if present, posts tweet, and updates status/postedAt/errorMsg.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: History (last 10)
+  - Show recent posted/scheduled/failed with timestamps, tweet links, and Retry on failures in settings via [src/components/dashboard/XHistory.tsx](src/components/dashboard/XHistory.tsx) or inline on [src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx).
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Preferences
+  - Add toggle “Auto-share new blog posts to X” persisted via UserSocialPrefs in [prisma/schema.prisma](prisma/schema.prisma) and exposed on settings page. Only persist preference for MVP.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Security and resilience
+  - Ensure tokens never reach client; image uploads handled server-side only; secrets masked in logs; implement backoff; validate required scopes; guard rails for auth state/CSRF; handle token refresh and expiry.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Tests
+  - Add unit tests for [src/lib/pkce.ts](src/lib/pkce.ts), [src/lib/crypto.ts](src/lib/crypto.ts), [src/lib/x-oauth.ts](src/lib/x-oauth.ts); API tests for callback/post/schedule/retry/cron; scheduler logic; include 429/5xx retry cases. Integrate with Vitest/CI.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Deployment notes
+  - Update [README.md](README.md) with X developer app setup, required scopes, Render persistent volume mount (/data), APP_URL/X_REDIRECT_URI configuration, and token rotation notes.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
+- [ ] X Integration: Migration path from existing stub /api/twitter/post
+  - Keep [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts) tests intact; add note or adapter if needed. New X endpoints live under /api/x/*.
+  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+
 ## Done
 
 - [x] Accessibility audit (WCAG AA) across public pages
