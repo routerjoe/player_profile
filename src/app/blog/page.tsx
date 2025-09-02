@@ -59,6 +59,7 @@ export default async function BlogIndexPage() {
                                 height={128}
                                 sizes="224px"
                                 className="w-28 h-16 object-cover"
+                                unoptimized
                               />
                             );
                           })()}

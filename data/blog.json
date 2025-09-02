@@ -1,0 +1,35 @@
+{
+  "posts": [
+    {
+      "slug": "welcome",
+      "title": "Welcome to the Player Blog",
+      "summary": "Intro to the new player profile blog — schedule, highlights, and development journey.",
+      "content": "# Welcome\n\nThis is the new blog space for updates on training, games, and milestones.\n\n- Training notes\n- Schedule changes\n- Video highlights\n\nStay tuned for more!",
+      "heroImage": "/uploads/demo/b58006b0-9e69-4333-a983-55a4d5c64185.jpg",
+      "tags": ["intro", "profile"],
+      "status": "published",
+      "publishedAt": "2025-01-15T10:00:00.000Z",
+      "tweetOnPublish": true
+    },
+    {
+      "slug": "summer-training",
+      "title": "Summer Training Plan",
+      "summary": "Outline of off-season strength and skills training.",
+      "content": "# Summer Training Plan\n\nFocus areas:\n\n1. Strength and conditioning 3x weekly\n2. Infield footwork and transfers\n3. Hitting sessions (tee + front toss + machine)\n\nTarget measurables:\n\n- Exit Velo: +3–5 mph\n- Throw Velo: +2–3 mph\n- Home to 1st: -0.05–0.1s",
+      "tags": ["training", "offseason"],
+      "status": "draft",
+      "tweetOnPublish": false
+    },
+    {
+      "slug": "game-recap-central",
+      "title": "Game Recap — vs Central HS",
+      "summary": "Quick recap from the 6–2 win over Central HS.",
+      "content": "# Game Recap — vs Central HS\n\nHighlights:\n\n- 2-for-3 with a double\n- RBI in the 3rd inning\n- Backhand play at short, quick release to 1st\n\nNext up: Westview (Away).",
+      "heroImage": "/uploads/demo/17c51f0f-7009-42ca-ad6c-7485a7970fe8.jpg",
+      "tags": ["recap", "schedule"],
+      "status": "published",
+      "publishedAt": "2025-03-13T02:30:00.000Z",
+      "tweetOnPublish": true
+    }
+  ]
+}

@@ -24,21 +24,32 @@ export async function getBlogIndex(): Promise<BlogIndex> {
     return parsed.data;
   };
 
+  // 1) Remote URL if provided (external source)
   if (url) {
     try {
       const res = await fetch(url, { next: { revalidate: 60 } });
-      if (!res.ok) {
-        console.warn('[getBlogIndex] Non-OK response', res.status, res.statusText);
-        return validateIndex(sampleBlog);
+      if (res.ok) {
+        const json = await res.json();
+        return validateIndex(json);
       }
-      const json = await res.json();
-      return validateIndex(json);
+      console.warn('[getBlogIndex] Non-OK response', res.status, res.statusText);
     } catch (err) {
-      console.warn('[getBlogIndex] Fetch failed, falling back to sample', err);
-      return validateIndex(sampleBlog);
+      console.warn('[getBlogIndex] Remote fetch failed', err);
     }
   }
 
+  // 2) Local API (server-persisted blog index written by Dashboard)
+  try {
+    const res = await fetch('/api/blog', { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      return validateIndex(json);
+    }
+  } catch {
+    // ignore and fall through to sample
+  }
+
+  // 3) Fallback to bundled sample
   return validateIndex(sampleBlog);
 }
 

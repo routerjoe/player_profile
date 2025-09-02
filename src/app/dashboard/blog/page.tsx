@@ -189,6 +189,25 @@ export default function DashboardBlogPage() {
       setErrors(undefined);
       setStatus('Post published');
 
+      // Persist entire blog index to server so public pages can see updates
+      try {
+        const fullIndex = getDraftIndex() ?? { posts: [] as BlogPost[] };
+        const r = await fetch('/api/blog', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(fullIndex),
+        });
+        if (r.ok) {
+          setStatus((s) => (s ? `${s} • Synced` : 'Synced'));
+        } else {
+          const j = await r.json().catch(() => ({}));
+          setStatus((s) => (s ? `${s} • Sync failed: ${j?.error || r.status}` : `Sync failed: ${j?.error || r.status}`));
+        }
+      } catch (e: any) {
+        setStatus((s) => (s ? `${s} • Sync failed: ${e?.message ?? 'Unknown error'}` : `Sync failed: ${e?.message ?? 'Unknown error'}`));
+      }
+
       if (payload.tweetOnPublish) {
         try {
           const text = `${payload.title} /blog/${payload.slug}`;
@@ -199,12 +218,12 @@ export default function DashboardBlogPage() {
           });
           const j = await r.json();
           if (r.ok) {
-            setStatus(`Post published • Tweet sent (${j?.id ?? 'ok'})`);
+            setStatus((s) => (s ? `${s} • Tweet sent (${j?.id ?? 'ok'})` : `Tweet sent (${j?.id ?? 'ok'})`));
           } else {
-            setStatus(`Post published • Tweet failed: ${j?.error ?? 'Unknown error'}`);
+            setStatus((s) => (s ? `${s} • Tweet failed: ${j?.error ?? 'Unknown error'}` : `Tweet failed: ${j?.error ?? 'Unknown error'}`));
           }
         } catch (e: any) {
-          setStatus(`Post published • Tweet failed: ${e?.message ?? 'Unknown error'}`);
+          setStatus((s) => (s ? `${s} • Tweet failed: ${e?.message ?? 'Unknown error'}` : `Tweet failed: ${e?.message ?? 'Unknown error'}`));
         }
       }
     } else {

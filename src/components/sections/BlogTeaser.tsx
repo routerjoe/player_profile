@@ -71,6 +71,7 @@ export async function BlogTeaser() {
                           height={256}
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="w-full h-40 object-cover"
+                          unoptimized
                         />
                       )}
                     </div>

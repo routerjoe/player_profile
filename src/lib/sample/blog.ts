@@ -17,7 +17,7 @@ export const blog: BlogIndex = {
         '',
         'Stay tuned for more!',
       ].join('\n'),
-      heroImage: '/hero.svg',
+      heroImage: '/uploads/demo/b58006b0-9e69-4333-a983-55a4d5c64185.jpg',
       tags: ['intro', 'profile'],
       status: 'published',
       publishedAt: '2025-01-15T10:00:00.000Z',
