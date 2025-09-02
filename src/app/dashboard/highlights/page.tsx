@@ -49,10 +49,12 @@ export default function DashboardHighlightsPage() {
   const highlights: Highlight[] = form.highlights ?? [];
   const [uploading, setUploading] = useState<number | null>(null);
   const [uploadPct, setUploadPct] = useState<Record<number, number>>({});
+  const [uploadErr, setUploadErr] = useState<Record<number, string>>({});
 
   async function uploadVideo(index: number, file: File) {
     setUploading(index);
     setUploadPct((p) => ({ ...p, [index]: 0 }));
+    setUploadErr((e) => ({ ...e, [index]: '' }));
     const fd = new FormData();
     fd.append('file', file);
     fd.append('alt', highlights[index]?.title || `highlight-${index + 1}`);
@@ -81,6 +83,7 @@ export default function DashboardHighlightsPage() {
           } catch (err) {
             // eslint-disable-next-line no-console
             console.error('Upload failed', err);
+            setUploadErr((e) => ({ ...e, [index]: (err as any)?.message ?? 'Upload failed' }));
           }
           resolve();
         }
@@ -196,6 +199,7 @@ export default function DashboardHighlightsPage() {
                             )
                           ) : null}
                         </div>
+                        {uploadErr[i] ? <p className="text-xs text-red-600">{uploadErr[i]}</p> : null}
                         {errorMap.get(`${base}.videoUrl`)?.map((m, k) => (
                           <p key={k} className="text-xs text-red-600">{m}</p>
                         ))}

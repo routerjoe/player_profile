@@ -219,3 +219,21 @@ Storage:
 Production:
 - Attach persistent volumes for /data and /public/uploads
 - Replace this simple auth with a managed provider when ready (NextAuth, Clerk, etc.), but these routes and types serve as a clean scaffold.
+## Media Uploads (Local) — Highlights
+- Endpoint: POST /api/media/upload (multipart/form-data, field: file)
+- Supported types:
+  - Images: jpeg/jpg, png, webp, avif, gif (validated against library allow-list)
+  - Video: mp4 (video/mp4), mov (video/quicktime), webm (video/webm)
+  - Other (limited): application/pdf (for recruiting packet, etc.)
+- Size limits:
+  - Configurable via MEDIA_MAX_UPLOAD_MB (default 100). Uploads larger than this return HTTP 413.
+- Storage:
+  - Files are written to /public/uploads/{playerId}/{uuid}.{ext} and are publicly accessible under /uploads/...
+  - The API returns a JSON payload with url, alt, size, type, uploadedAt, and provider.
+- Dashboard Highlights workflow:
+  - Use the Upload button in Dashboard → Highlights to choose a local video; progress is shown per row.
+  - On success, the row’s Video URL is set to the returned /uploads/... path. Clicking the highlight card opens the video.
+
+Environment
+- Add the following to your .env or .env.local:
+  - MEDIA_MAX_UPLOAD_MB=100

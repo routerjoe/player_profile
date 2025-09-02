@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getSessionFromRequest } from '@/lib/users/session';
 import { urlForUpload, absolutePathForUrl, saveFileFromBuffer } from '@/lib/photos/fs';
+import { ALLOWED_MIME_TYPES as IMAGE_ALLOWED, MIME_TO_EXT as IMAGE_MIME_TO_EXT } from '@/lib/photos/types';
 
 /**
  * Use the standard Web Response instead of NextResponse to avoid
@@ -18,6 +19,23 @@ const json = (data: any, init: ResponseInit = {}) =>
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Configurable size limit (MB) for uploads; default 100MB
+const MEDIA_MAX_UPLOAD_MB = Number(process.env.MEDIA_MAX_UPLOAD_MB || '100');
+const MEDIA_MAX_UPLOAD_BYTES = MEDIA_MAX_UPLOAD_MB * 1024 * 1024;
+
+// Allowed video MIME types for highlights uploads
+const ALLOWED_VIDEO_MIME = new Set<string>(['video/mp4', 'video/quicktime', 'video/webm']);
+
+// Map video MIME -> extension
+const VIDEO_MIME_TO_EXT: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+};
+
+// Additional non-image/video types allowed for general media (e.g., Recruiting Packet PDFs)
+const ADDITIONAL_ALLOWED_MIME = new Set<string>(['application/pdf']);
+
 /**
  * Media upload API (local)
  * Accepts multipart/form-data with a "file" field and writes to /public/uploads/{playerId}/{id}.{ext}
@@ -34,6 +52,13 @@ export async function POST(req: Request) {
     const file = form.get('file');
     const alt = form.get('alt')?.toString() || '';
 
+    if (file instanceof File) {
+      const size = file.size ?? 0;
+      if (size > MEDIA_MAX_UPLOAD_BYTES) {
+        return json({ error: `File too large. Max ${MEDIA_MAX_UPLOAD_MB}MB` }, { status: 413 });
+      }
+    }
+
     if (!(file instanceof File)) {
       return json({ error: 'Missing file field' }, { status: 400 });
     }
@@ -46,10 +71,36 @@ export async function POST(req: Request) {
       playerId = devId || 'demo';
     }
 
-    // Derive extension from MIME or filename
+    // Derive extension from MIME or filename, validate type
     const type = (file.type || '').toLowerCase();
+
+    // Validate allowed types (images, selected videos, or additional allowed like PDF)
+    let allowed = false;
+    if (type.startsWith('image/')) {
+      allowed = IMAGE_ALLOWED.has(type);
+    } else if (type.startsWith('video/')) {
+      allowed = ALLOWED_VIDEO_MIME.has(type);
+    } else if (type) {
+      allowed = ADDITIONAL_ALLOWED_MIME.has(type);
+    } else {
+      // if browser didn't send a type, allow as best-effort
+      allowed = true;
+    }
+    if (!allowed) {
+      return json({ error: `Unsupported file type: ${type || 'unknown'}` }, { status: 400 });
+    }
+
+    // Map MIME -> extension
     let ext = '';
-    if (type.includes('/')) ext = type.split('/')[1] || '';
+    if (type) {
+      if (VIDEO_MIME_TO_EXT[type]) {
+        ext = VIDEO_MIME_TO_EXT[type];
+      } else if (IMAGE_MIME_TO_EXT[type]) {
+        ext = IMAGE_MIME_TO_EXT[type];
+      } else if (type.includes('/')) {
+        ext = type.split('/')[1] || '';
+      }
+    }
     if (!ext) {
       const name = file.name || '';
       const i = name.lastIndexOf('.');
