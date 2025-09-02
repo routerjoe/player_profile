@@ -34,6 +34,7 @@ Conventions:
 
 
 
+- [ ] Polish Highlights uploader UX (per-row error messages, retry button)
 
 ## Done
 
