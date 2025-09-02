@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Profile } from '@/lib/types';
 import { getDraft, saveDraft } from '@/lib/dashboard/storage';
 import { profile as sampleProfile } from '@/lib/sample/profile';
@@ -90,7 +90,7 @@ export default function DashboardProfilePage() {
     return local || (process.env.NEXT_PUBLIC_DEFAULT_PLAYER_ID || 'demo');
   }
 
-  async function loadPackets(forPlayer?: string): Promise<PacketFile[]> {
+  const loadPackets = useCallback(async (forPlayer?: string): Promise<PacketFile[]> => {
     const pid = forPlayer || playerId;
     if (!pid) return [];
     setLoadingPackets(true);
@@ -107,7 +107,7 @@ export default function DashboardProfilePage() {
     } finally {
       setLoadingPackets(false);
     }
-  }
+  }, [playerId]);
 
   useEffect(() => {
     let ignore = false;
@@ -119,7 +119,7 @@ export default function DashboardProfilePage() {
       }
     })();
     return () => { ignore = true; };
-  }, []);
+  }, [loadPackets]);
 
   async function deletePacket(id: string) {
     if (!playerId) return;

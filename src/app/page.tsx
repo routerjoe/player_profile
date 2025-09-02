@@ -68,7 +68,7 @@ export default async function HomePage({ searchParams }: { searchParams?: { play
   const overlayOpacity = typeof theme?.heroOverlayOpacity === 'number' ? theme?.heroOverlayOpacity : undefined;
   const overlayEnabled = theme?.heroOverlayEnabled !== false;
   return (
-    <main className="min-h-screen">
+    <main id="main" role="main" className="min-h-screen">
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
         <Hero
           profile={profile}

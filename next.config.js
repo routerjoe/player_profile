@@ -1,9 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Provide a default build id generator so Next's internal call doesn't receive undefined
-  generateBuildId: () => null,
+  poweredByHeader: false,
+  // Use default Next build id generation
   images: {
+    minimumCacheTTL: 86400, // cache optimized images for 1 day
     remotePatterns: [
       { protocol: 'https', hostname: '**.supabase.co' },
       { protocol: 'https', hostname: '**.amazonaws.com' },
@@ -16,6 +17,22 @@ const nextConfig = {
       { protocol: 'http', hostname: '127.0.0.1' },
       { protocol: 'https', hostname: '127.0.0.1' }
     ]
+  },
+  async headers() {
+    return [
+      {
+        source: '/uploads/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }
+        ]
+      },
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }
+        ]
+      }
+    ];
   }
 };
 module.exports = nextConfig;

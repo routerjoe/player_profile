@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import Image from 'next/image';
 import { getBlogIndex } from '@/lib/adapters/public/blog';
@@ -58,6 +59,7 @@ export async function BlogTeaser() {
                           alt={p.title}
                           width={640}
                           height={256}
+                          sizes="(max-width: 768px) 100vw, 33vw"
                           className="w-full h-40 object-cover"
                         />
                       )}

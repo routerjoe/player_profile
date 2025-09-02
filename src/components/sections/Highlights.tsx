@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React from 'react';
 import Image from 'next/image';
 import { Profile } from '@/lib/types';
@@ -52,7 +53,7 @@ export function Highlights({ profile, coverUrl }: Props) {
                 priority={false}
               />
             )}
-            <div className="absolute inset-0 ring-1 ring-black/5" />
+            <div className="absolute inset-0 ring-1 ring-black/5" aria-hidden="true" />
           </div>
         </Card>
       ) : null}
@@ -78,7 +79,7 @@ export function Highlights({ profile, coverUrl }: Props) {
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition group-hover:scale-[1.02]"
                   />
-                  <div className="absolute inset-0 ring-1 ring-black/5" />
+                  <div className="absolute inset-0 ring-1 ring-black/5" aria-hidden="true" />
                 </div>
                 <div className="p-4">
                   <p className="text-sm font-medium text-[var(--fg)] line-clamp-2">{title}</p>

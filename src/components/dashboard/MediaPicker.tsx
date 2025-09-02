@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -142,6 +143,8 @@ export function MediaPicker({
               <img
                 src={value}
                 alt="Selected media"
+                loading="lazy"
+                decoding="async"
                 className="h-16 w-16 object-cover rounded-md border border-slate-200 bg-white"
               />
               <div className="text-xs text-slate-600 break-all">{value}</div>
@@ -166,6 +169,8 @@ export function MediaPicker({
                     <img
                       src={item.url}
                       alt={item.alt || 'Media'}
+                      loading="lazy"
+                      decoding="async"
                       className="h-24 w-full object-cover rounded-md border border-slate-200 bg-white"
                     />
                     <div className="mt-1 text-[11px] text-slate-600 line-clamp-2 break-all">

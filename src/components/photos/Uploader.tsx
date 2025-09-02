@@ -35,6 +35,7 @@ export function Uploader(props: UploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [liveMessage, setLiveMessage] = useState<string>('');
 
   const maxMb = useMemo(() => Math.round(MAX_UPLOAD_BYTES / (1024 * 1024)), []);
 
@@ -116,6 +117,7 @@ export function Uploader(props: UploaderProps) {
       // mark uploading
       items[i] = { ...it, status: 'uploading', error: undefined };
       setQueue([...items]);
+      setLiveMessage(`Uploading ${it.file.name}`);
 
       try {
         const created = await uploadOne(it.file);
@@ -123,15 +125,32 @@ export function Uploader(props: UploaderProps) {
         // mark done
         items[i] = { ...items[i], status: 'done' };
         setQueue([...items]);
+        setLiveMessage(`Uploaded ${it.file.name} successfully`);
       } catch (e: any) {
-        items[i] = { ...items[i], status: 'error', error: e?.message ?? 'Upload failed' };
+        const msg = e?.message ?? 'Upload failed';
+        items[i] = { ...items[i], status: 'error', error: msg };
         setQueue([...items]);
+        setLiveMessage(`Error uploading ${it.file.name}: ${msg}`);
       }
     }
 
     if (results.length > 0) {
       onUploaded?.(results);
     }
+  }
+
+  function retryUpload(id: string) {
+    setQueue((prev) => {
+      const idx = prev.findIndex((q) => q.id === id);
+      if (idx === -1) return prev;
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], status: 'pending', error: undefined };
+      return copy;
+    });
+    // kick off upload for pending items
+    setTimeout(() => {
+      startUpload();
+    }, 0);
   }
 
   function clearFinished() {
@@ -170,6 +189,7 @@ export function Uploader(props: UploaderProps) {
           onChange={onSelect}
         />
       </div>
+      <div aria-live="polite" className="sr-only">{liveMessage}</div>
 
       {queue.length > 0 && (
         <div className="mt-4 rounded-xl border bg-white p-3">
@@ -213,7 +233,17 @@ export function Uploader(props: UploaderProps) {
                     <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs text-green-700">Done</span>
                   )}
                   {q.status === 'error' && (
-                    <span className="inline-flex items-center rounded-md bg-red-100 px-2 py-1 text-xs text-red-700">Error</span>
+                    <>
+                      <span className="inline-flex items-center rounded-md bg-red-100 px-2 py-1 text-xs text-red-700">Error</span>
+                      <button
+                        type="button"
+                        onClick={() => retryUpload(q.id)}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent-cool)]"
+                        aria-label={`Retry upload for ${q.file.name}`}
+                      >
+                        Retry
+                      </button>
+                    </>
                   )}
                 </div>
               </li>

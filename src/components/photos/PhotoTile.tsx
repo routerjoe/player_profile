@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useCallback, useMemo, useState } from 'react';
 import type { PhotoRecord, PhotoUsage } from '@/lib/photos/types';
@@ -119,6 +120,8 @@ export function PhotoTile(props: PhotoTileProps) {
         <img
           src={photo.url}
           alt={photo.alt || photo.title}
+          loading="lazy"
+          decoding="async"
           className="aspect-square w-full object-cover rounded-xl border"
         />
 

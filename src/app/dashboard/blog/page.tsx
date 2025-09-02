@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { BlogIndex, BlogPost } from '@/lib/types';
@@ -449,6 +450,8 @@ export default function DashboardBlogPage() {
                   <img
                     src={draft.heroImage}
                     alt={draft.title}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-48 object-cover rounded-xl border border-slate-200 bg-white"
                   />
                 ) : null}

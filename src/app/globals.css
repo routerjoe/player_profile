@@ -44,7 +44,7 @@ body {
 @layer utilities {
   .hero-overlay {
     background-image: linear-gradient(to bottom right, var(--hero-from), var(--hero-to));
-    opacity: var(--hero-overlay-opacity, 0.15);
+    opacity: var(--hero-overlay-opacity, 0.2);
   }
 }
 
@@ -58,4 +58,27 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 10000;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 0.75rem;
+  background: #ffffff;
+  color: var(--fg);
+  border: 2px solid var(--accent-cool);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }

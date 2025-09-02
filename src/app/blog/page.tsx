@@ -1,8 +1,18 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import Image from 'next/image';
 import { getBlogIndex } from '@/lib/adapters/public/blog';
 
+function normalizeUploadsPath(u: string): string {
+  if (!u) return '';
+  if (u.startsWith('/public/uploads/')) return u.replace(/^\/public\/uploads\//, '/uploads/');
+  if (u.startsWith('public/uploads/')) return u.replace(/^public\/uploads\//, '/uploads/');
+  if (u.startsWith('uploads/')) return `/${u}`;
+  return u;
+}
+
 export const dynamic = 'force-static';
+export const revalidate = 300;
 
 export default async function BlogIndexPage() {
   const index = await getBlogIndex();
@@ -11,7 +21,7 @@ export default async function BlogIndexPage() {
     .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
 
   return (
-    <main className="min-h-screen">
+    <main id="main" role="main" className="min-h-screen">
       <section className="container max-w-5xl px-4 sm:px-6 lg:px-8 py-12 space-y-8">
         <h1 className="heading-xl">Blog</h1>
 
@@ -29,24 +39,29 @@ export default async function BlogIndexPage() {
                         href={`/blog/${p.slug}`}
                       >
                         <div className="relative w-28 h-16 overflow-hidden rounded-md border border-slate-200 bg-white">
-                          {(/^https?:\/\//i.test(p.heroImage) || /\.svg($|\?)/i.test(p.heroImage)) ? (
-                            <img
-                              src={p.heroImage}
-                              alt={p.title}
-                              width={224}
-                              height={128}
-                              className="w-28 h-16 object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <Image
-                              src={p.heroImage}
-                              alt={p.title}
-                              width={224}
-                              height={128}
-                              className="w-28 h-16 object-cover"
-                            />
-                          )}
+                          {(() => {
+                            const hero = normalizeUploadsPath(p.heroImage || '');
+                            const isExternal = /^https?:\/\//i.test(hero) || /\.svg($|\?)/i.test(hero);
+                            return isExternal ? (
+                              <img
+                                src={hero}
+                                alt={p.title}
+                                width={224}
+                                height={128}
+                                className="w-28 h-16 object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Image
+                                src={hero}
+                                alt={p.title}
+                                width={224}
+                                height={128}
+                                sizes="224px"
+                                className="w-28 h-16 object-cover"
+                              />
+                            );
+                          })()}
                         </div>
                       </Link>
                     ) : null}

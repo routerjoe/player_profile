@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import Image from 'next/image';
 import React, { useEffect, useState } from 'react';
@@ -80,7 +81,7 @@ export function Hero({ profile, heroUrlOverride, frameColor, fillColor, overlayO
       style={{ backgroundColor: effectiveFill, borderColor: frameColor }}
     >
       {/* Gradient overlay on top of fill */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0" aria-hidden="true">
         <div
           className="absolute inset-0 hero-overlay"
           style={
@@ -126,11 +127,27 @@ export function Hero({ profile, heroUrlOverride, frameColor, fillColor, overlayO
           <div
             className="relative w-[26rem] aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/10"
           >
-            <img
-              src={cardImage}
-              alt={`${name} hero`}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            {(() => {
+              const isExternal = /^https?:\/\//i.test(cardImage);
+              const isSvg = /\.svg($|\?)/i.test(cardImage);
+              const altText = `${name} hero`;
+              return (isExternal || isSvg) ? (
+                <img
+                  src={cardImage}
+                  alt={altText}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={cardImage}
+                  alt={altText}
+                  fill
+                  sizes="(max-width: 1024px) 60vw, 26rem"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  priority
+                />
+              );
+            })()}
           </div>
         </div>
       ) : null}

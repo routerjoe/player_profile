@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React from 'react';
 import { Profile } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -52,6 +53,8 @@ export async function BioAcademics({ profile, playerId }: Props) {
                 alt={`${fullName} headshot`}
                 width={112}
                 height={112}
+                loading="lazy"
+                decoding="async"
                 className="w-28 h-28 object-cover rounded-xl border"
               />
             </div>

@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { resetDraft } from '@/lib/dashboard/storage';
+import { getBlogIndex, importBlogIndex } from '@/lib/dashboard/blogStorage';
+import JSZip from 'jszip';
 
 const field =
   'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-cool)]';
@@ -35,6 +37,19 @@ export default function DashboardSettingsPage() {
 
   // Reset
   const [resetMsg, setResetMsg] = useState<string | null>(null);
+
+  // Danger Zone: Delete profile/account
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteUser, setDeleteUser] = useState(false);
+  const [delMsg, setDelMsg] = useState<string | null>(null);
+  const [delErr, setDelErr] = useState<string | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
+
+  // Export / Import
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [exportErr, setExportErr] = useState<string | null>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [importErr, setImportErr] = useState<string | null>(null);
 
   const devUserId =
     typeof window !== 'undefined' ? window.localStorage.getItem('pp_user_id') || '' : '';
@@ -70,6 +85,401 @@ export default function DashboardSettingsPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Utilities
+  function downloadJson(filename: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function resolvePlayerId(): Promise<string> {
+    try {
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      if (res.ok) {
+        const j = await res.json();
+        const id = j?.user?.playerId || j?.user?.id || '';
+        if (id) return id;
+      }
+    } catch {}
+    return (
+      (typeof window !== 'undefined' ? window.localStorage.getItem('pp_user_id') || '' : '') ||
+      (process.env.NEXT_PUBLIC_DEFAULT_PLAYER_ID || 'demo')
+    );
+  }
+
+  async function exportSiteData() {
+    setExportErr(null);
+    setExportMsg(null);
+    try {
+      const playerId = await resolvePlayerId();
+
+      // Profile
+      const profRes = await fetch('/api/profile', {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+        cache: 'no-store',
+      });
+      const prof = await profRes.json().catch(() => ({} as any));
+
+      // Teams
+      const teamsRes = await fetch(`/api/players/${encodeURIComponent(playerId)}/teams`, {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+        cache: 'no-store',
+      });
+      const teams = await teamsRes.json().catch(() => ({} as any));
+
+      // Photos metadata (not binary)
+      const photosRes = await fetch(`/api/photos?playerId=${encodeURIComponent(playerId)}`, {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+        cache: 'no-store',
+      });
+      const photos = await photosRes.json().catch(() => []);
+
+      // Blog (from dashboard localStorage)
+      const blog = getBlogIndex() ?? { posts: [] };
+
+      const bundle = {
+        version: 'pp-site-1',
+        exportedAt: new Date().toISOString(),
+        playerId,
+        profile: prof?.profile ?? null,
+        teams: teams ?? null,
+        blog,
+        photos,
+        notes:
+          'This export includes metadata and URLs for images/videos. Binary assets under /public/uploads are not embedded.',
+      };
+
+      const filename = `player_profile_export_${playerId}_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      downloadJson(filename, bundle);
+      setExportMsg('Export ready — JSON downloaded.');
+      setTimeout(() => setExportMsg(null), 2000);
+    } catch (e: any) {
+      setExportErr(e?.message ?? 'Export failed');
+    }
+  }
+
+  async function importSiteData(file: File) {
+    setImportErr(null);
+    setImportMsg(null);
+    try {
+      const text = await file.text();
+      const bundle = JSON.parse(text);
+
+      const playerId = await resolvePlayerId();
+
+      // Profile
+      if (bundle?.profile) {
+        const res = await fetch('/api/profile', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'content-type': 'application/json',
+            ...(devUserId ? { 'x-user-id': devUserId } : {}),
+          },
+          body: JSON.stringify(bundle.profile),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.error || 'Profile import failed');
+        }
+      }
+
+      // Teams (PUT school/travel core fields)
+      if (bundle?.teams) {
+        const pick = (t: any) => ({
+          teamName: t?.teamName ?? '',
+          coachName: t?.coachName ?? '',
+          coachEmail: t?.coachEmail ?? '',
+          isPublic: t?.isPublic !== false,
+        });
+        const body = {
+          school: pick(bundle.teams.school || {}),
+          travel: pick(bundle.teams.travel || {}),
+        };
+        const res = await fetch(`/api/players/${encodeURIComponent(playerId)}/teams`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'content-type': 'application/json',
+            ...(devUserId ? { 'x-user-id': devUserId } : {}),
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.error || 'Teams import failed');
+        }
+
+        // (Optional) attempt to restore socials by posting links
+        for (const team of ['school', 'travel'] as const) {
+          const socials = Array.isArray(bundle?.teams?.[team]?.socials)
+            ? bundle.teams[team].socials
+            : [];
+          for (const s of socials) {
+            try {
+              await fetch(`/api/players/${encodeURIComponent(playerId)}/teams/social`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'content-type': 'application/json',
+                  ...(devUserId ? { 'x-user-id': devUserId } : {}),
+                },
+                body: JSON.stringify({
+                  team,
+                  platform: s.platform,
+                  url: s.url,
+                  handle: s.handle,
+                }),
+              });
+            } catch {
+              // ignore individual social errors
+            }
+          }
+        }
+      }
+
+      // Blog (localStorage draft)
+      if (bundle?.blog) {
+        const j = JSON.stringify(bundle.blog);
+        const result = importBlogIndex(j);
+        if (!result.valid) {
+          throw new Error('Blog import failed (invalid format)');
+        }
+      }
+
+      setImportMsg('Import completed (assets not included).');
+      setTimeout(() => setImportMsg(null), 2500);
+    } catch (e: any) {
+      setImportErr(e?.message ?? 'Import failed');
+    }
+  }
+
+  // Collect local asset URLs (under /uploads) from APIs and local blog/profile
+  async function collectLocalAssetPaths(playerId: string): Promise<string[]> {
+    const paths = new Set<string>();
+
+    // Photos metadata
+    try {
+      const res = await fetch(`/api/photos?playerId=${encodeURIComponent(playerId)}`, {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const list: any[] = await res.json();
+        for (const p of list) {
+          if (typeof p?.url === 'string' && p.url.startsWith('/uploads/')) paths.add(p.url);
+        }
+      }
+    } catch {}
+
+    // Recruiting packets (PDFs)
+    try {
+      const res = await fetch(`/api/players/${encodeURIComponent(playerId)}/recruiting/packets`, {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const j: any = await res.json();
+        for (const f of j?.files || []) {
+          if (typeof f?.url === 'string' && f.url.startsWith('/uploads/')) paths.add(f.url);
+        }
+      }
+    } catch {}
+
+    // Profile: highlights videoUrl and hero images if local
+    try {
+      const res = await fetch('/api/profile', {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const j: any = await res.json();
+        const prof = j?.profile || {};
+        for (const h of prof?.highlights || []) {
+          const v = String(h?.videoUrl || '');
+          if (v.startsWith('/uploads/')) paths.add(v);
+          const t = String(h?.thumbnailUrl || '');
+          if (t.startsWith('/uploads/')) paths.add(t);
+        }
+        const hero = String(prof?.photos?.active?.heroImage || '');
+        if (hero.startsWith('/uploads/')) paths.add(hero);
+        const featured = String(prof?.photos?.active?.featuredAction || '');
+        if (featured.startsWith('/uploads/')) paths.add(featured);
+      }
+    } catch {}
+
+    // Blog local drafts: heroImage and images referenced in markdown
+    try {
+      const blog = getBlogIndex() ?? { posts: [] };
+      for (const p of blog.posts || []) {
+        const hi = String(p?.heroImage || '');
+        if (hi.startsWith('/uploads/')) paths.add(hi);
+        const content = String(p?.content || '');
+        const matches = content.match(/\/uploads\/[^\s\)\]"']+/g) || [];
+        matches.forEach((m) => paths.add(m));
+      }
+    } catch {}
+
+    return Array.from(paths);
+  }
+
+  async function exportAssetsZip() {
+    setExportErr(null);
+    setExportMsg(null);
+    try {
+      const playerId = await resolvePlayerId();
+      const paths = await collectLocalAssetPaths(playerId);
+
+      if (paths.length === 0) {
+        setExportMsg('No local assets found to export.');
+        setTimeout(() => setExportMsg(null), 2000);
+        return;
+      }
+
+      const zip = new JSZip();
+      const failures: string[] = [];
+
+      for (const p of paths) {
+        const rel = p.replace(/^\//, ''); // e.g., uploads/{playerId}/file.ext
+        const url = p.startsWith('http') ? p : `${window.location.origin}${p}`;
+        try {
+          const res = await fetch(url, { credentials: 'include' });
+          if (!res.ok) throw new Error(`${res.status}`);
+          const ab = await res.arrayBuffer();
+          zip.file(rel, ab);
+        } catch {
+          failures.push(p);
+        }
+      }
+
+      // Optional metadata file
+      zip.file(
+        'metadata.json',
+        JSON.stringify(
+          { note: 'Asset bundle for /uploads path', files: paths, failed: failures, playerHint: await resolvePlayerId() },
+          null,
+          2,
+        ),
+      );
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `player_assets_${await resolvePlayerId()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setExportMsg(failures.length ? `Assets ZIP ready (some files failed: ${failures.length})` : 'Assets ZIP downloaded.');
+      setTimeout(() => setExportMsg(null), 2500);
+    } catch (e: any) {
+      setExportErr(e?.message ?? 'Export assets failed');
+    }
+  }
+
+  async function exportAssetsZipServer() {
+    setExportErr(null);
+    setExportMsg(null);
+    try {
+      const res = await fetch('/api/assets/export', {
+        method: 'GET',
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      if (!res.ok) {
+        const j: any = await res.json().catch(() => ({}));
+        throw new Error(j?.error || 'Export assets failed');
+      }
+      const blob = await res.blob();
+      if (blob.size === 0) {
+        setExportErr('No assets found to export');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `assets_${await resolvePlayerId()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setExportMsg('Assets ZIP downloaded.');
+      setTimeout(() => setExportMsg(null), 2000);
+    } catch (e: any) {
+      setExportErr(e?.message ?? 'Export assets failed');
+    }
+  }
+
+  async function importAssetsZip(file: File) {
+    setImportErr(null);
+    setImportMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/assets/import', {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Import assets failed');
+      setImportMsg(`Imported ${j?.files ?? 0} files into uploads/${j?.playerId}`);
+      setTimeout(() => setImportMsg(null), 2500);
+    } catch (e: any) {
+      setImportErr(e?.message ?? 'Import assets failed');
+    }
+  }
+
+  async function deleteEntireProfile() {
+    setDelErr(null);
+    setDelMsg(null);
+    setDelBusy(true);
+    try {
+      const res = await fetch('/api/profile/delete', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+          ...(devUserId ? { 'x-user-id': devUserId } : {}),
+        },
+        body: JSON.stringify({
+          confirm: deleteConfirm,
+          deleteUserAccount: deleteUser,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Delete failed');
+
+      setDelMsg('Profile deleted. Signing out...');
+      // Attempt logout and redirect
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      } catch {}
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1200);
+    } catch (e: any) {
+      setDelErr(e?.message ?? 'Delete failed');
+    } finally {
+      setDelBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -266,6 +676,62 @@ export default function DashboardSettingsPage() {
         </div>
       </section>
 
+      {/* Export / Import */}
+      <section className={section}>
+        <h2 className={sectionTitle}>Export / Import Site Data</h2>
+        <p className="text-sm text-slate-600">
+          Export includes profile, teams, blog drafts, and photo metadata (URLs). Binary assets under
+          <code className="mx-1">/public/uploads</code> are not embedded in this JSON export.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className={btnGhost} onClick={exportSiteData} aria-label="Export site JSON">
+            Export JSON
+          </button>
+          <label className={btnGhost} title="Import a previously exported JSON file">
+            Import JSON
+            <input
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.currentTarget.files?.[0];
+                if (f) importSiteData(f);
+                e.currentTarget.value = '';
+              }}
+            />
+          </label>
+
+          <button className={btnGhost} onClick={exportAssetsZip} aria-label="Export assets ZIP">
+            Export Assets ZIP
+          </button>
+          <button className={btnGhost} onClick={exportAssetsZipServer} aria-label="Export assets ZIP (server)">
+            Export Assets ZIP (server)
+          </button>
+          <label className={btnGhost} title="Import a ZIP of assets into /uploads/{playerId}">
+            Import Assets ZIP
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.currentTarget.files?.[0];
+                if (f) importAssetsZip(f);
+                e.currentTarget.value = '';
+              }}
+            />
+          </label>
+
+          {exportMsg ? <span className="text-sm text-green-700">{exportMsg}</span> : null}
+          {exportErr ? <span className="text-sm text-red-600">{exportErr}</span> : null}
+          {importMsg ? <span className="text-sm text-green-700">{importMsg}</span> : null}
+          {importErr ? <span className="text-sm text-red-600">{importErr}</span> : null}
+        </div>
+        <p className="text-xs text-slate-500">
+          Tip: JSON export/import moves your profile, teams, and blog drafts. Assets ZIP moves files under /uploads.
+          After importing, refresh your public page to see updates.
+        </p>
+      </section>
+
       {/* Danger Zone */}
       <section className={section}>
         <h2 className={sectionTitle}>Danger Zone</h2>
@@ -290,6 +756,57 @@ export default function DashboardSettingsPage() {
             {resetMsg}
           </div>
         )}
+
+        <hr className="my-4" />
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-red-700">Delete Profile and All Data</h3>
+          <p className="text-sm text-slate-600">
+            This action permanently deletes your uploads, photos metadata, profile, and teams. It cannot be undone.
+          </p>
+
+          <label className={label} htmlFor="delete-confirm">Type "delete my profile" to confirm</label>
+          <input
+            id="delete-confirm"
+            className={field}
+            placeholder="delete my profile"
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            aria-describedby="delete-help"
+          />
+          <div id="delete-help" className="text-xs text-slate-500">
+            Exact phrase required. You will be signed out after deletion if you choose to delete your account.
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-[var(--brand-green)] focus:ring-[var(--accent-cool)]"
+              checked={deleteUser}
+              onChange={(e) => setDeleteUser(e.target.checked)}
+            />
+            Also delete my user account
+          </label>
+
+          <div className="flex items-center gap-2">
+            <button
+              className={btnDanger}
+              disabled={
+                delBusy || deleteConfirm.trim().toLowerCase() !== 'delete my profile'
+              }
+              onClick={() => {
+                const ok = window.confirm('This will permanently delete your profile data. Continue?');
+                if (!ok) return;
+                deleteEntireProfile();
+              }}
+              aria-label="Delete profile and data"
+            >
+              {delBusy ? 'Deleting…' : 'Delete Profile and Data'}
+            </button>
+            {delMsg ? <span className="text-sm text-green-700">{delMsg}</span> : null}
+            {delErr ? <span className="text-sm text-red-600">{delErr}</span> : null}
+          </div>
+        </div>
       </section>
     </div>
   );

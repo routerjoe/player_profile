@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState } from 'react';
 import { getDraft } from '@/lib/dashboard/storage';
+import HelpPanel from '@/components/dashboard/HelpPanel';
 
 const tabs = [
   { href: '/dashboard/profile', label: 'Profile' },
@@ -127,6 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       <main className="container max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <HelpPanel />
         {children}
       </main>
     </div>

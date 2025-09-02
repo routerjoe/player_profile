@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Inter, Bebas_Neue } from "next/font/google";
 
@@ -11,10 +11,17 @@ export const metadata: Metadata = {
   description: "Modern player profile and dashboard",
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#26A84A',
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${bebas.variable}`}>
       <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
+        <a href="#main" className="skip-link">Skip to content</a>
         {children}
         <footer className="mt-12 border-t border-slate-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-slate-600 flex items-center justify-between">
