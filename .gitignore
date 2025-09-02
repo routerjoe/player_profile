@@ -23,4 +23,7 @@ pnpm-debug.log*
 .DS_Store
 
 # Vercel / Build cache
-.vercel/testdata/oversize.mp4
+.vercel/
+# Test data artifacts (large files stay local)
+testdata/oversize.mp4
+testdata/*.mp4

@@ -237,3 +237,30 @@ Production:
 Environment
 - Add the following to your .env or .env.local:
   - MEDIA_MAX_UPLOAD_MB=100
+## Environment Variables
+
+This project reads configuration from environment files (.env or .env.local). A template is provided at [.env.example](.env.example). Copy it and adjust for your environment:
+
+- AUTH_SECRET
+  - Required in production. Used to sign cookie sessions.
+  - Referenced by [src/lib/users/session.ts](src/lib/users/session.ts:8).
+- NEXT_PUBLIC_DEFAULT_PLAYER_ID
+  - Public fallback player id used by the home page and some dashboard defaults.
+  - Referenced by [src/app/page.tsx](src/app/page.tsx:54), [src/app/dashboard/profile/page.tsx](src/app/dashboard/profile/page.tsx:90), and [src/app/dashboard/photos/page.tsx](src/app/dashboard/photos/page.tsx:12).
+- NEXT_PUBLIC_PROFILE_JSON_URL
+  - Optional URL for the public Profile adapter. Must return JSON matching the validated schema.
+  - Referenced by [src/lib/adapters/public/profile.ts](src/lib/adapters/public/profile.ts:39).
+- NEXT_PUBLIC_BLOG_JSON_URL
+  - Optional URL for the public Blog adapter. Must return JSON matching the validated schema.
+  - Referenced by [src/lib/adapters/public/blog.ts](src/lib/adapters/public/blog.ts:11).
+- MEDIA_MAX_UPLOAD_MB
+  - Maximum upload size (MB) enforced by the media upload API. Oversized files return HTTP 413.
+  - Referenced by [src/app/api/media/upload/route.ts](src/app/api/media/upload/route.ts:23).
+
+Quick start:
+1) cp .env.example .env.local
+2) Set AUTH_SECRET to a long random value for production
+3) Optionally set NEXT_PUBLIC_PROFILE_JSON_URL and NEXT_PUBLIC_BLOG_JSON_URL to HTTPS endpoints that return valid JSON
+4) Adjust MEDIA_MAX_UPLOAD_MB as needed (default 100)
+
+Note: .env files are already ignored in [.gitignore](.gitignore).
