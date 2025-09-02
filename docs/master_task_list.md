@@ -24,9 +24,8 @@ Conventions:
 - [x] Consolidate and import outstanding tasks from source docs listed above
 - [ ] Scan codebase for TODO/FIXME and convert into backlog items
 - [ ] Define acceptance criteria per feature/section and link to specs
-- [ ] Set up CI: lint, type-check, and tests on pull requests
 
-- [ ] Add basic API route tests (media upload, twitter post, blog storage)
+- [ ] Add remaining API route tests (twitter post, blog storage)
 - [ ] Accessibility audit (WCAG AA) across public pages
 - [ ] Performance pass (images, caching, bundle size) with measurable targets
 - [ ] Optimize for mobile browsers (responsive layout, tap targets, viewport meta, avoid CLS/LCP regressions)
@@ -72,6 +71,15 @@ Conventions:
   - Acceptance verified:
     - .env.example includes AUTH_SECRET, NEXT_PUBLIC_DEFAULT_PLAYER_ID, optional NEXT_PUBLIC_PROFILE_JSON_URL, NEXT_PUBLIC_BLOG_JSON_URL, and MEDIA_MAX_UPLOAD_MB
     - README contains an Environment Variables section with references to usage locations
+- [x] CI setup (lint, type-check, tests on PRs)
+  - Code: [.github/workflows/ci.yml](.github/workflows/ci.yml), [package.json](package.json), [vitest.config.ts](vitest.config.ts)
+  - Acceptance verified:
+    - Workflow runs on push/PR to main and executes npm run ci (lint, typecheck, tests)
+- [x] Initial tests with Vitest (media upload API + public adapters)
+  - Code: [tests/media.upload.test.ts](tests/media.upload.test.ts), [tests/adapters.public.test.ts](tests/adapters.public.test.ts)
+  - Acceptance verified:
+    - Local: npm run test passes
+    - CI: tests executed in workflow
 - [x] Photos Library — Local FS + JSON (Dashboard + API)
   - API: GET/POST [src/app/api/photos/route.ts](src/app/api/photos/route.ts), PATCH/DELETE [src/app/api/photos/[id]/route.ts](src/app/api/photos/%5Bid%5D/route.ts)
   - Library: Types [src/lib/photos/types.ts](src/lib/photos/types.ts), JSON DB [src/lib/photos/db.ts](src/lib/photos/db.ts), FS helpers [src/lib/photos/fs.ts](src/lib/photos/fs.ts), Service [src/lib/photos/service.ts](src/lib/photos/service.ts), Dev guards [src/lib/auth/guards.ts](src/lib/auth/guards.ts)
