@@ -25,10 +25,12 @@ Conventions:
 - [ ] Scan codebase for TODO/FIXME and convert into backlog items
 - [ ] Define acceptance criteria per feature/section and link to specs
 
-- [ ] Add remaining API route tests (twitter post, blog storage)
+- [ ] Add API test for Twitter post route — [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts)
+- [ ] Add tests for dashboard blog storage — [src/lib/dashboard/blogStorage.ts](src/lib/dashboard/blogStorage.ts)
 - [ ] Accessibility audit (WCAG AA) across public pages
 - [ ] Performance pass (images, caching, bundle size) with measurable targets
 - [ ] Optimize for mobile browsers (responsive layout, tap targets, viewport meta, avoid CLS/LCP regressions)
+- [ ] Address npm audit critical vulnerability (local dev); run npm audit fix or update affected packages
 
 
 
