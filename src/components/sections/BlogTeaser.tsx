@@ -31,8 +31,18 @@ export async function BlogTeaser() {
       <ul className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {posts.map((p) => {
           const showImg = !!p.heroImage;
-          const isExternal = !!p.heroImage && /^https?:\/\//i.test(p.heroImage);
-          const isSvg = !!p.heroImage && /\.svg($|\?)/i.test(p.heroImage as string);
+          const heroRaw = p.heroImage as string;
+          const hero = showImg
+            ? (() => {
+                if (!heroRaw) return '';
+                if (heroRaw.startsWith('/public/uploads/')) return heroRaw.replace(/^\/public\/uploads\//, '/uploads/');
+                if (heroRaw.startsWith('public/uploads/')) return heroRaw.replace(/^public\/uploads\//, '/uploads/');
+                if (heroRaw.startsWith('uploads/')) return `/${heroRaw}`;
+                return heroRaw;
+              })()
+            : '';
+          const isExternal = showImg && /^https?:\/\//i.test(hero);
+          const isSvg = showImg && /\.svg($|\?)/i.test(hero);
           const dateText = p.publishedAt ? new Date(p.publishedAt).toLocaleDateString() : '';
 
           return (
@@ -46,7 +56,7 @@ export async function BlogTeaser() {
                     <div className="relative w-full h-40 bg-slate-100 border-b border-slate-200">
                       {isExternal || isSvg ? (
                         <img
-                          src={p.heroImage as string}
+                          src={hero}
                           alt={p.title}
                           width={640}
                           height={256}
@@ -55,7 +65,7 @@ export async function BlogTeaser() {
                         />
                       ) : (
                         <Image
-                          src={p.heroImage as string}
+                          src={hero}
                           alt={p.title}
                           width={640}
                           height={256}
