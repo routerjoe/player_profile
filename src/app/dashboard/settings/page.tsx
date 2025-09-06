@@ -29,7 +29,37 @@ export default function DashboardSettingsPage() {
   const [overlayOpacity, setOverlayOpacity] = useState<number>(0.15);
   const [overlayEnabled, setOverlayEnabled] = useState<boolean>(true);
 
+// X Integration — UI state
+const [xStatus, setXStatus] = useState<{ connected: boolean; handle?: string; tokenExpiresAt?: string; scopeWarning?: string } | null>(null);
+const [xLoading, setXLoading] = useState(false);
+const [xErr, setXErr] = useState<string | null>(null);
+
+const [xText, setXText] = useState('');
+const [xMsg, setXMsg] = useState<string | null>(null);
+const [xPostBusy, setXPostBusy] = useState(false);
+const [xFile, setXFile] = useState<File | null>(null);
+const xFileRef = React.useRef<HTMLInputElement | null>(null);
+const [csrf, setCsrf] = useState<string>('');
+const [lastPostAt, setLastPostAt] = useState<number>(0);
+
+type XHist = {
+  id: string;
+  status: string;
+  scheduledFor: string | null;
+  postedAt: string | null;
+  errorMsg: string | null;
+  tweetId?: string | null;
+  tweetUrl?: string | null;
+};
+const [xHistory, setXHistory] = useState<XHist[]>([]);
+const [xHistoryLoading, setXHistoryLoading] = useState(false);
+const [xScheduleAt, setXScheduleAt] = useState('');
+const [xScheduleBusy, setXScheduleBusy] = useState(false);
   // Password
+// X Preferences — auto-share
+const [autoShare, setAutoShare] = useState(false);
+const [prefsLoading, setPrefsLoading] = useState(false);
+const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
   const [curPwd, setCurPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
@@ -85,6 +115,296 @@ export default function DashboardSettingsPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // X Integration — effects and helpers
+  useEffect(() => {
+    refreshXStatus();
+    refreshXHistory();
+    loadXPrefs();
+    // Obtain CSRF token cookie + value for POSTs
+    (async () => {
+      try {
+        const res = await fetch('/api/csrf', { credentials: 'include' });
+        const j = await res.json().catch(() => ({}));
+        if (res.ok && j?.token) setCsrf(String(j.token));
+      } catch {}
+    })();
+  }, []);
+
+  async function refreshXStatus() {
+    try {
+      setXLoading(true);
+      setXErr(null);
+      const res = await fetch('/api/x/status', {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      if (res.status === 401) {
+        setXStatus({ connected: false });
+        return;
+      }
+      const j = await res.json();
+      if (res.ok) {
+        setXStatus({ connected: !!j.connected, handle: j.handle, tokenExpiresAt: j.tokenExpiresAt, scopeWarning: j.scopeWarning });
+      } else {
+        setXErr(j?.error || 'Failed to fetch X status');
+      }
+    } catch (e: any) {
+      setXErr(e?.message ?? 'Failed to fetch X status');
+    } finally {
+      setXLoading(false);
+    }
+  }
+
+  async function refreshXHistory() {
+    try {
+      setXHistoryLoading(true);
+      const res = await fetch('/api/x/history', {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      if (res.status === 401) {
+        setXHistory([]);
+        return;
+      }
+      const j = await res.json();
+      setXHistory(Array.isArray(j?.items) ? j.items : []);
+    } catch {
+      setXHistory([]);
+    } finally {
+      setXHistoryLoading(false);
+    }
+  }
+
+  // X Preferences (auto-share blog to X)
+  async function loadXPrefs() {
+    try {
+      setPrefsLoading(true);
+      const res = await fetch('/api/x/prefs', {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      if (res.status === 401) {
+        setAutoShare(false);
+        return;
+      }
+      const j = await res.json();
+      if (res.ok) {
+        setAutoShare(!!j?.autoShareBlogToX);
+      }
+    } finally {
+      setPrefsLoading(false);
+    }
+  }
+
+  async function saveXPrefs(next: boolean) {
+    try {
+      setPrefsLoading(true);
+      setPrefsMsg(null);
+      // Optimistic UI
+      setAutoShare(next);
+
+      const res = await fetch('/api/x/prefs', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+          ...(devUserId ? { 'x-user-id': devUserId } : {}),
+        },
+        body: JSON.stringify({ autoShareBlogToX: next }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Failed to update preferences');
+
+      setPrefsMsg('Preferences saved');
+      setTimeout(() => setPrefsMsg(null), 1500);
+    } catch (e: any) {
+      // Revert on error
+      setAutoShare((prev) => !prev);
+      setPrefsMsg(null);
+      setXErr(e?.message ?? 'Failed to update preferences');
+    } finally {
+      setPrefsLoading(false);
+    }
+  }
+
+  function formatRelative(iso?: string) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const diff = d.getTime() - Date.now();
+    const abs = Math.abs(diff);
+    const mins = Math.round(abs / 60000);
+    if (mins < 1) return diff < 0 ? 'just now' : 'in <1m';
+    if (mins < 60) return diff < 0 ? `${mins}m ago` : `in ${mins}m`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return diff < 0 ? `${hours}h ago` : `in ${hours}h`;
+    const days = Math.round(hours / 24);
+    return diff < 0 ? `${days}d ago` : `in ${days}d`;
+  }
+
+  async function connectX() {
+    try {
+      setXErr(null);
+      const res = await fetch('/api/x/auth-url', {
+        credentials: 'include',
+        headers: devUserId ? { 'x-user-id': devUserId } : {},
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.url) throw new Error(j?.error || 'Failed to start OAuth');
+      window.location.href = j.url;
+    } catch (e: any) {
+      setXErr(e?.message ?? 'Failed to start OAuth');
+    }
+  }
+
+  async function disconnectX() {
+    try {
+      const ok = window.confirm('Disconnect X?');
+      if (!ok) return;
+      setXErr(null);
+      const res = await fetch('/api/x/disconnect', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          ...(devUserId ? { 'x-user-id': devUserId } : {}),
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        },
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Disconnect failed');
+      await refreshXStatus();
+      await refreshXHistory();
+    } catch (e: any) {
+      setXErr(e?.message ?? 'Disconnect failed');
+    }
+  }
+
+  async function postXNow() {
+    try {
+      setXErr(null);
+      setXMsg(null);
+      if (!xText.trim()) {
+        setXErr('Enter text to post');
+        return;
+      }
+      if (xText.length > 280) {
+        setXErr('Text exceeds 280 characters');
+        return;
+      }
+      setXPostBusy(true);
+
+      let res: Response;
+      if (xFile) {
+        const fd = new FormData();
+        fd.append('text', xText.trim());
+        fd.append('file', xFile);
+        res = await fetch('/api/x/post', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            ...(devUserId ? { 'x-user-id': devUserId } : {}),
+            ...(csrf ? { 'x-csrf-token': csrf } : {}),
+          },
+          body: fd,
+        });
+      } else {
+        res = await fetch('/api/x/post', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'content-type': 'application/json',
+            ...(devUserId ? { 'x-user-id': devUserId } : {}),
+            ...(csrf ? { 'x-csrf-token': csrf } : {}),
+          },
+          body: JSON.stringify({ text: xText.trim() }),
+        });
+      }
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Post failed');
+      setXMsg('Posted to X');
+      setXText('');
+      setLastPostAt(Date.now());
+      setXFile(null);
+      if (xFileRef.current) xFileRef.current.value = '';
+      await refreshXHistory();
+      setTimeout(() => setXMsg(null), 2000);
+    } catch (e: any) {
+      setXErr(e?.message ?? 'Post failed');
+    } finally {
+      setXPostBusy(false);
+    }
+  }
+
+  async function scheduleXPost() {
+    try {
+      setXErr(null);
+      setXMsg(null);
+      if (!xText.trim()) {
+        setXErr('Enter text to schedule');
+        return;
+      }
+      if (xText.length > 280) {
+        setXErr('Text exceeds 280 characters');
+        return;
+      }
+  // removed duplicate prefs helpers
+      setXScheduleBusy(true);
+
+      const payload: any = { text: xText.trim() };
+      if (xScheduleAt) {
+        const d = new Date(xScheduleAt);
+        if (!Number.isNaN(d.getTime())) {
+          payload.scheduledFor = d.toISOString();
+        } else {
+          setXErr('Invalid schedule datetime');
+          setXScheduleBusy(false);
+          return;
+        }
+      }
+
+      const res = await fetch('/api/x/schedule', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+          ...(devUserId ? { 'x-user-id': devUserId } : {}),
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || 'Schedule failed');
+
+      setXMsg('Scheduled');
+      setXScheduleAt('');
+      await refreshXHistory();
+      setTimeout(() => setXMsg(null), 2000);
+    } catch (e: any) {
+      setXErr(e?.message ?? 'Schedule failed');
+    } finally {
+      setXScheduleBusy(false);
+    }
+  }
+  async function retryScheduled(id: string) {
+    try {
+      await fetch('/api/x/retry', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+          ...(devUserId ? { 'x-user-id': devUserId } : {}),
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        },
+        body: JSON.stringify({ id }),
+      });
+      await refreshXHistory();
+    } catch {
+      // ignore
+    }
+  }
 
   // Utilities
   function downloadJson(filename: string, data: unknown) {
@@ -627,6 +947,175 @@ export default function DashboardSettingsPage() {
           {accMsg ? <span className="text-sm text-green-700">{accMsg}</span> : null}
           {accErr ? <span className="text-sm text-red-600">{accErr}</span> : null}
         </div>
+      </section>
+
+      {/* Social Connections — X */}
+      <section className={section}>
+        <h2 className={sectionTitle}>Social Connections — X</h2>
+
+                  {/* Scheduling */}
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] items-end gap-2">
+                    <div>
+                      <label className={label}>Schedule time (optional)</label>
+                      <input
+                        className={field}
+                        type="datetime-local"
+                        value={xScheduleAt}
+                        onChange={(e) => setXScheduleAt(e.target.value)}
+                        aria-label="Schedule time"
+                      />
+                      <div className="text-xs text-slate-600 mt-1">Leave blank to schedule for now</div>
+                    </div>
+                    <button
+                      className={btnGhost}
+                      disabled={xScheduleBusy || !xText.trim() || xText.length > 280}
+                      onClick={scheduleXPost}
+                      aria-label="Schedule X post"
+                    >
+                      {xScheduleBusy ? 'Scheduling…' : 'Schedule'}
+                    </button>
+                  </div>
+        {xLoading ? (
+          <div className="text-sm text-slate-600">Checking connection...</div>
+        ) : (
+          <>
+            {xStatus?.connected ? (
+              <div className="space-y-3">
+                <div className="text-sm text-slate-700">
+                  Connected
+                  {xStatus.handle ? (
+                    <>
+                      {' '}as <span className="font-semibold">{xStatus.handle}</span>
+                    </>
+                  ) : null}
+                  {xStatus.tokenExpiresAt ? (
+                    <> — token {formatRelative(xStatus.tokenExpiresAt)}</>
+                  ) : null}
+                </div>
+                {xStatus.scopeWarning ? (
+                  <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                    {xStatus.scopeWarning}
+                  </div>
+                ) : null}
+
+                <div className="flex items-center gap-2">
+                  <button className={btnGhost} onClick={disconnectX}>Disconnect</button>
+                </div>
+
+                {/* Composer */}
+                <div className="space-y-2">
+                  <label className={label}>Composer</label>
+                  <textarea
+                    className={`${field} h-24`}
+                    value={xText}
+                    onChange={(e) => setXText(e.target.value)}
+                    placeholder="What's happening?"
+                    aria-label="X post text"
+                  />
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>{xText.length} / 280</span>
+                    {xText.length > 280 ? <span className="text-red-600">Too long</span> : null}
+                  </div>
+
+                  {/* Optional single-image attach */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={xFileRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setXFile(e.currentTarget.files?.[0] ?? null)}
+                      aria-label="Attach image for X post"
+                    />
+                    {xFile ? (
+                      <span className="text-xs text-slate-600">
+                        Image: {xFile.name} ({xFile.type || 'image'})
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={btnPrimary}
+                      disabled={
+                        xPostBusy ||
+                        !xText.trim() ||
+                        xText.length > 280 ||
+                        (lastPostAt > 0 && Date.now() - lastPostAt < 15000)
+                      }
+                      onClick={postXNow}
+                      aria-label="Post to X"
+                    >
+                      {xPostBusy ? 'Posting…' : 'Post to X'}
+                    </button>
+                    {xMsg ? <span className="text-sm text-green-700">{xMsg}</span> : null}
+                    {xErr ? <span className="text-sm text-red-600">{xErr}</span> : null}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm text-slate-700">
+                  Connect your X account to post from your dashboard.
+                </div>
+                <div>
+                  <button className={btnPrimary} onClick={connectX} aria-label="Connect X">
+                    Connect X
+                  </button>
+                </div>
+                {xErr ? <div className="text-sm text-red-600">{xErr}</div> : null}
+              </div>
+            )}
+          </>
+        )}
+
+        <hr className="my-4" />
+        <h3 className="text-sm font-semibold text-slate-800">History (last 10)</h3>
+        {xHistoryLoading ? (
+          <div className="text-sm text-slate-600">Loading history…</div>
+        ) : xHistory.length === 0 ? (
+          <div className="text-sm text-slate-600">No history yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-700">
+                  <th className="px-2 py-1">Status</th>
+                  <th className="px-2 py-1">Scheduled</th>
+                  <th className="px-2 py-1">Posted</th>
+                  <th className="px-2 py-1">Tweet</th>
+                  <th className="px-2 py-1">Error</th>
+                  <th className="px-2 py-1">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {xHistory.map((h) => (
+                  <tr key={h.id} className="border-t border-slate-200">
+                    <td className="px-2 py-1">{h.status}</td>
+                    <td className="px-2 py-1">{h.scheduledFor ? formatRelative(h.scheduledFor) : '-'}</td>
+                    <td className="px-2 py-1">{h.postedAt ? formatRelative(h.postedAt) : '-'}</td>
+                    <td className="px-2 py-1">
+                      {h.tweetUrl ? (
+                        <a href={h.tweetUrl} target="_blank" rel="noreferrer" className="text-[var(--brand-green)] underline">
+                          Open
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-2 py-1">{h.errorMsg || '-'}</td>
+                    <td className="px-2 py-1">
+                      {h.status === 'failed' || h.status === 'scheduled' ? (
+                        <button className={btnGhost} onClick={() => retryScheduled(h.id)} aria-label={`Retry ${h.id}`}>
+                          Retry
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* Change Password */}

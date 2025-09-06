@@ -14,15 +14,22 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ci": "npm run lint && npm run typecheck && npm run test"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "ci": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run lint && npm run typecheck && npm run test",
+    "cron:x": "curl -H \"x-cron-secret: ${CRON_SECRET:-}\" http://localhost:3000/api/cron/run-x-queue"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "6.15.0",
+    "iron-session": "8.0.4",
     "jszip": "^3.10.1",
+    "libsodium-wrappers": "0.7.15",
     "next": "^14.2.32",
+    "prisma": "6.15.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "zod": "^4.0.17"

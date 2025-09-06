@@ -55,7 +55,7 @@ tweet.read users.read tweet.write offline.access media.write
 ## Security
 - **PKCE** (code_verifier + S256).
 - Encrypt `access_token`/`refresh_token` with **libsodium** `secretbox`, using a key derived from `APP_SECRET`. Tokens never reach the client.
-- Image handling: upload to X v2 Media from the **server**; don’t persist user images on disk unless needed.
+- Image handling: server-side single-image upload is gated via `X_MEDIA_UPLOAD_ENABLED`. It uses the legacy v1.1 `media/upload` endpoint and may not accept OAuth 2.0 Bearer tokens in all environments. If disabled or unsupported, composer posts text-only; don’t persist user images on disk unless needed.
 - Retry on 429/5xx with exponential backoff (2 attempts).
 
 ---

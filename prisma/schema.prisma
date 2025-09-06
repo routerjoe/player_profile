@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./data/app.db"
+}
+
+model SocialAccount {
+  id               String   @id @default(cuid())
+  userId           String
+  provider         String
+  handle           String?
+  xUserId          String?
+  accessTokenEnc   Bytes
+  refreshTokenEnc  Bytes?
+  tokenExpiresAt   DateTime?
+  scope            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model ScheduledPost {
+  id            String   @id @default(cuid())
+  userId        String
+  provider      String
+  text          String
+  imageUrl      String?
+  mediaIdsJson  String?
+  tweetId       String?
+  tweetUrl      String?
+  status        String   @default("scheduled")
+  scheduledFor  DateTime?
+  postedAt      DateTime?
+  errorMsg      String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, status, scheduledFor])
+}
+
+model UserSocialPrefs {
+  userId           String  @id
+  autoShareBlogToX Boolean @default(false)
+  updatedAt        DateTime @updatedAt
+}

@@ -4,6 +4,9 @@ const nextConfig = {
   poweredByHeader: false,
   // Use default Next build id generation
   images: {
+    // Avoid requiring the native 'sharp' dependency in dev/local by disabling optimization.
+    // This still allows <Image/> usage without runtime errors.
+    unoptimized: true,
     minimumCacheTTL: 86400, // cache optimized images for 1 day
     remotePatterns: [
       { protocol: 'https', hostname: '**.supabase.co' },

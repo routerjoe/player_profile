@@ -1,6 +1,6 @@
 # Master Task List
 
-Last updated: 2025-09-02
+Last updated: 2025-09-06
 
 This document is the single source of truth for project tasks. Keep sections ordered by priority. Link issues/PRs where applicable.
 
@@ -18,107 +18,112 @@ Conventions:
 ## In Progress
 
 
-- [-] Accessibility audit (WCAG AA) across public pages
-  - Changes implemented:
-    - Viewport meta export added in [src/app/layout.tsx](src/app/layout.tsx)
-    - Skip link “Skip to content” added and styled; target set on main landmark in [src/app/layout.tsx](src/app/layout.tsx) and [src/app/globals.css](src/app/globals.css)
-    - Aria-live (polite) announcements for upload progress/errors added to [src/components/photos/Uploader.tsx](src/components/photos/Uploader.tsx)
-    - Main landmark role set on homepage in [src/app/page.tsx](src/app/page.tsx)
-    - Next/Image usage and sizes improved in [src/components/sections/Hero.tsx](src/components/sections/Hero.tsx) and [src/components/sections/Highlights.tsx](src/components/sections/Highlights.tsx) to avoid CLS
-  - Next steps for completion:
-    - Keyboard sweep across public pages (tab order, focus rings, focus traps)
-    - Contrast verification for text over hero overlays and cards (AA)
-    - Alt text audit for all imagery (meaningful alt or aria-hidden when decorative)
-
-- [-] Optimize for mobile browsers (responsive layout, tap targets, viewport meta, avoid CLS/LCP regressions)
-  - Changes implemented:
-    - Viewport meta configured via Next export in [src/app/layout.tsx](src/app/layout.tsx)
-    - 44×44+ tap targets through shared button primitives in [src/components/ui/Button.tsx](src/components/ui/Button.tsx)
-    - Image sizes/priority tuned for hero and highlights to reduce CLS in [src/components/sections/Hero.tsx](src/components/sections/Hero.tsx) and [src/components/sections/Highlights.tsx](src/components/sections/Highlights.tsx)
-  - Next steps for completion:
-    - Verify layouts at 360/768/1280/1536; adjust spacing if needed
-    - Validate scroll/overscroll behavior, avoid double scroll containers on mobile
 ## Backlog
 
-- [x] Consolidate and import outstanding tasks from source docs listed above
+- [ ] Client adapter for Dashboard (wrap /api/x/* with typed responses and consistent error mapping)
+  - File: [src/lib/adapters/dashboard/x.ts](src/lib/adapters/dashboard/x.ts)
+  - Acceptance: All X Settings actions use the adapter; network and API errors map to user-friendly toasts.
 
+- [ ] UI polish: toasts + disconnect confirmation modal in Settings
+  - File: [src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx)
+  - Acceptance: Non-blocking success/error toasts; custom confirm modal replaces window.confirm.
 
+- [ ] Unit tests
+  - Targets: [src/lib/pkce.ts](src/lib/pkce.ts), [src/lib/crypto.ts](src/lib/crypto.ts), [src/lib/x-oauth.ts](src/lib/x-oauth.ts)
+  - Acceptance: Verifier length/charset, S256; crypto round-trip + bad inputs; fetchWithRetry backoff and 429/5xx retries covered.
 
+- [ ] API tests (mock X endpoints with MSW or equivalent)
+  - Endpoints: [src/app/api/x/auth-url/route.ts](src/app/api/x/auth-url/route.ts), [src/app/api/x/callback/route.ts](src/app/api/x/callback/route.ts), [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts), [src/app/api/x/schedule/route.ts](src/app/api/x/schedule/route.ts), [src/app/api/x/retry/route.ts](src/app/api/x/retry/route.ts), [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)
+  - Acceptance: Happy path + common failures (401/403/429/5xx); queue run processes and updates records correctly.
 
+- [ ] Dev mocking: MSW setup for X OAuth/token/tweet flows
+  - Acceptance: Tests use MSW handlers; no real network calls to X.
 
-- [ ] X Integration: Configure environment and dependencies
-  - Add env vars X_CLIENT_ID, X_CLIENT_SECRET, X_REDIRECT_URI, APP_URL, APP_SECRET, SESSION_PASSWORD in [.env.example](.env.example) and document them in [README.md](README.md). Include Render persistent volume mount for /data notes.
-  - Install prisma, @prisma/client, libsodium-wrappers, iron-session and initialize Prisma migration.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Observability: minimal structured logs with secret scrubbing
+  - Acceptance: No tokens/secrets logged; redact patterns in error payloads; logs useful for debugging.
 
-- [ ] X Integration: SQLite + Prisma schema
-  - Add models SocialAccount, ScheduledPost, UserSocialPrefs to [prisma/schema.prisma](prisma/schema.prisma); run `npx prisma migrate dev -n init_social_x` creating file:/data/app.db.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Deployment notes
+  - File: [README.md](README.md)
+  - Acceptance: X Developer App setup, required scopes, APP_URL/X_REDIRECT_URI alignment, Render cron cadence, volume mount for /data, token rotation notes.
 
-- [ ] X Integration: iron-session setup
-  - Create [src/lib/session.ts](src/lib/session.ts) with sessionOptions and typed IronSessionData per spec; ensure secure cookie settings in production.
-  - Use getIronSession in API routes to read/write session (userId, oauth state+verifier).
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Migration notes
+  - Acceptance: Document deprecation path for [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts) and new /api/x/* endpoints.
 
-- [ ] X Integration: PKCE helpers
-  - Implement [src/lib/pkce.ts](src/lib/pkce.ts) to generate code_verifier and S256 code_challenge.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Leak tests
+  - Acceptance: Assert no secrets in responses/logs (tokens, refresh_token, Authorization headers).
 
-- [ ] X Integration: libsodium crypto helpers
-  - Implement [src/lib/crypto.ts](src/lib/crypto.ts) using libsodium secretbox with key derived from APP_SECRET to encrypt/decrypt access/refresh tokens; tokens never sent to client.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Definition of Done (X Integration)
+  - Acceptance: Connect/Disconnect; tokens encrypted at rest; Post Now + Schedule; tests pass; docs updated; no Supabase.
 
-- [ ] X Integration: X OAuth + API wrapper
-  - Implement [src/lib/x-oauth.ts](src/lib/x-oauth.ts) for OAuth 2.0 PKCE (auth URL, callback exchange, refresh), media upload (v2), and tweet posting with scopes: tweet.read users.read tweet.write offline.access media.write. Add 429/5xx retry with exponential backoff (2 attempts).
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Error mapping UX
+  - Acceptance: Standard messages for 401/403/429/5xx; UI hints for retry/backoff; scope warning surfaced.
 
-- [ ] X Integration: API routes
-  - GET /api/x/auth-url → [src/app/api/x/auth-url/route.ts](src/app/api/x/auth-url/route.ts)
-  - GET /api/x/callback → [src/app/api/x/callback/route.ts](src/app/api/x/callback/route.ts)
-  - POST /api/x/disconnect → [src/app/api/x/disconnect/route.ts](src/app/api/x/disconnect/route.ts)
-  - POST /api/x/post → [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts)
-  - POST /api/x/schedule → [src/app/api/x/schedule/route.ts](src/app/api/x/schedule/route.ts)
-  - POST /api/x/retry → [src/app/api/x/retry/route.ts](src/app/api/x/retry/route.ts)
-  - Cron /api/cron/run-x-queue → [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Dashboard Settings UI — Social Connections
-  - Update [src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx) to show “Connect X” when disconnected; when connected show @handle, token expiry (relative), and a Disconnect button.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Composer (tweet now + single image)
-  - Add components [src/components/dashboard/XComposer.tsx](src/components/dashboard/XComposer.tsx) and wire to POST /api/x/post with textarea + char counter (warn > 280) and single image upload (server-side media upload).
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Scheduling
-  - Implement scheduling UI (ISO datetime) in settings; persist to ScheduledPost in [prisma/schema.prisma](prisma/schema.prisma). Cron route consumes due posts, uploads media if present, posts tweet, and updates status/postedAt/errorMsg.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: History (last 10)
-  - Show recent posted/scheduled/failed with timestamps, tweet links, and Retry on failures in settings via [src/components/dashboard/XHistory.tsx](src/components/dashboard/XHistory.tsx) or inline on [src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx).
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Preferences
-  - Add toggle “Auto-share new blog posts to X” persisted via UserSocialPrefs in [prisma/schema.prisma](prisma/schema.prisma) and exposed on settings page. Only persist preference for MVP.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Security and resilience
-  - Ensure tokens never reach client; image uploads handled server-side only; secrets masked in logs; implement backoff; validate required scopes; guard rails for auth state/CSRF; handle token refresh and expiry.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Tests
-  - Add unit tests for [src/lib/pkce.ts](src/lib/pkce.ts), [src/lib/crypto.ts](src/lib/crypto.ts), [src/lib/x-oauth.ts](src/lib/x-oauth.ts); API tests for callback/post/schedule/retry/cron; scheduler logic; include 429/5xx retry cases. Integrate with Vitest/CI.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Deployment notes
-  - Update [README.md](README.md) with X developer app setup, required scopes, Render persistent volume mount (/data), APP_URL/X_REDIRECT_URI configuration, and token rotation notes.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
-
-- [ ] X Integration: Migration path from existing stub /api/twitter/post
-  - Keep [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts) tests intact; add note or adapter if needed. New X endpoints live under /api/x/*.
-  - Acceptance: [docs/connect_x.md](docs/connect_x.md)
+- [ ] Manual QA checklist
+  - File: [docs/x_manual_test_plan.md](docs/x_manual_test_plan.md)
+  - Acceptance: Steps for Connect/Disconnect/Post/Schedule/Retry, expired tokens, rate limits, cron path, CSRF, feature flags, image gating.
 
 ## Done
+### X Integration
+
+- [x] Environment and dependencies
+  - Added X_ENABLED and X_MEDIA_UPLOAD_ENABLED to [.env.example](.env.example); documented CRON_SECRET and CSRF usage in [README.md](README.md).
+
+- [x] SQLite + Prisma schema and migrations
+  - Extended [prisma/schema.prisma](prisma/schema.prisma) with ScheduledPost.tweetId/tweetUrl and introduced a "processing" transitional status; applied migration 20250906024137; DB path file:./data/app.db.
+
+- [x] iron-session setup
+  - Session helpers and guards wired for OAuth state and user context in API routes ([src/lib/session.ts](src/lib/session.ts)).
+
+- [x] PKCE helpers
+  - Implemented S256 verifier/challenge utilities ([src/lib/pkce.ts](src/lib/pkce.ts)).
+
+- [x] libsodium crypto helpers
+  - Token encryption-at-rest (secretbox with key derived from APP_SECRET) ([src/lib/crypto.ts](src/lib/crypto.ts)).
+
+- [x] X OAuth + API wrapper
+  - OAuth 2.0 PKCE flows, postTweet, minimal fetchWithRetry (429/5xx backoff), and env-gated image upload via legacy v1.1 endpoint ([src/lib/x-oauth.ts](src/lib/x-oauth.ts)).
+
+- [x] API routes
+  - Auth URL, callback, disconnect, post now, schedule, retry, history, status, cron runner:
+    - [src/app/api/x/auth-url/route.ts](src/app/api/x/auth-url/route.ts)
+    - [src/app/api/x/callback/route.ts](src/app/api/x/callback/route.ts)
+    - [src/app/api/x/disconnect/route.ts](src/app/api/x/disconnect/route.ts)
+    - [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts)
+    - [src/app/api/x/schedule/route.ts](src/app/api/x/schedule/route.ts)
+    - [src/app/api/x/retry/route.ts](src/app/api/x/retry/route.ts)
+    - [src/app/api/x/history/route.ts](src/app/api/x/history/route.ts)
+    - [src/app/api/x/status/route.ts](src/app/api/x/status/route.ts)
+    - [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)
+
+- [x] Status enhancements + feature flag
+  - Guarded by X_ENABLED; returns scopeWarning when required scopes are missing ([src/app/api/x/status/route.ts](src/app/api/x/status/route.ts)).
+
+- [x] History with tweet links
+  - Stores tweetId/tweetUrl and surfaces "Open" links in UI ([src/app/api/x/history/route.ts](src/app/api/x/history/route.ts)).
+
+- [x] Dashboard Settings UI
+  - Social connect state with handle/expiry; disconnect; Composer with optional single-image attach + 280 counter + 15s throttle; scheduler input; history (with tweet link) and retry; scopeWarning banner ([src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx)).
+
+- [x] Scheduling + Cron processing
+  - Schedules via /api/x/schedule; cron claims items atomically (scheduled→processing), posts, records tweet link, and marks posted/failed; crash-safe revert for stuck processing and 90-day retention cleanup ([src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)).
+
+- [x] Preferences API
+  - Read/write "Auto-share blog posts to X" ([src/app/api/x/prefs/route.ts](src/app/api/x/prefs/route.ts)).
+
+- [x] Security and resilience
+  - CSRF double-submit cookie with /api/csrf, x-csrf-token on sensitive POSTs; no tokens returned; backoff in core X calls ([src/app/api/csrf/route.ts](src/app/api/csrf/route.ts), [src/lib/security/csrf.ts](src/lib/security/csrf.ts)).
+
+- [x] Validation (Zod)
+  - Schemas for post/schedule/retry and enforced in routes ([src/lib/validation/x.ts](src/lib/validation/x.ts)).
+
+- [x] ENV invariants + flags
+  - Centralized env loader/assertions ([src/lib/env.ts](src/lib/env.ts)).
+
+- [x] CI pipeline
+  - Ensures Prisma generate and migration deploy in CI before lint/typecheck/tests (package scripts and workflow).
+
+- [x] Composer safeguards
+  - Throttle to 1 post per 15s; disable when empty or >280; live char counter (UI).
 
 - [x] Accessibility audit (WCAG AA) across public pages
   - Code: [src/app/layout.tsx](src/app/layout.tsx), [src/app/page.tsx](src/app/page.tsx), [src/app/globals.css](src/app/globals.css), [src/components/photos/Uploader.tsx](src/components/photos/Uploader.tsx), [src/components/sections/Hero.tsx](src/components/sections/Hero.tsx), [src/components/sections/GalleryClient.tsx](src/components/sections/GalleryClient.tsx), [src/components/sections/Highlights.tsx](src/components/sections/Highlights.tsx), [src/components/sections/BioAcademics.tsx](src/components/sections/BioAcademics.tsx), [src/app/blog/page.tsx](src/app/blog/page.tsx), [src/app/blog/%5Bslug%5D/page.tsx](src/app/blog/%5Bslug%5D/page.tsx)

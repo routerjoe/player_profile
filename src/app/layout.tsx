@@ -1,4 +1,3 @@
-import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Inter, Bebas_Neue } from "next/font/google";
@@ -20,6 +19,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${bebas.variable}`}>
+      <head>
+        <link rel="stylesheet" href="/tw.css" />
+      </head>
       <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
         <a href="#main" className="skip-link">Skip to content</a>
         {children}

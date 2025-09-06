@@ -219,6 +219,13 @@ Storage:
 Production:
 - Attach persistent volumes for /data and /public/uploads
 - Replace this simple auth with a managed provider when ready (NextAuth, Clerk, etc.), but these routes and types serve as a clean scaffold.
+## CSRF Protection
+
+- A double-submit cookie pattern is used for X POST routes.
+- Request a CSRF token: `GET /api/csrf` → `{ token }` and a `pp_csrf` cookie will be set.
+- Include the token in the `x-csrf-token` header for `POST /api/x/*` routes (disconnect, post, schedule, retry).
+- Issuer: [src/app/api/csrf/route.ts](src/app/api/csrf/route.ts), helpers in [src/lib/security/csrf.ts](src/lib/security/csrf.ts)
+
 ## Media Uploads (Local) — Highlights
 - Endpoint: POST /api/media/upload (multipart/form-data, field: file)
 - Supported types:
@@ -256,6 +263,53 @@ This project reads configuration from environment files (.env or .env.local). A 
 - MEDIA_MAX_UPLOAD_MB
   - Maximum upload size (MB) enforced by the media upload API. Oversized files return HTTP 413.
   - Referenced by [src/app/api/media/upload/route.ts](src/app/api/media/upload/route.ts:23).
+
+### X Integration (Twitter) — Additional variables
+
+- X_CLIENT_ID
+  - Client ID from your X Developer App. See [docs/connect_x.md](docs/connect_x.md).
+- X_CLIENT_SECRET
+  - Client Secret from your X Developer App.
+- X_REDIRECT_URI
+  - OAuth callback URL, e.g. http://localhost:3000/api/x/callback. Must be whitelisted in the X Developer App.
+- APP_URL
+  - Base URL of your deployment, used to construct redirects and absolute URLs (e.g., http://localhost:3000).
+- APP_SECRET
+  - Used to derive the encryption key for libsodium secretbox to encrypt tokens at rest. Never expose to the client. See [docs/connect_x.md](docs/connect_x.md).
+- SESSION_PASSWORD
+  - Required by iron-session for signing the session cookie. Use a long, random string.
+- CRON_SECRET
+  - Optional secret for protecting cron endpoints. If set, requests to /api/cron/run-x-queue must include x-cron-secret header with this value.
+  - Referenced by [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts).
+- X_ENABLED
+  - Feature flag to enable/disable X integration. Set to "false" to disable. When disabled, [src/app/api/x/status/route.ts](src/app/api/x/status/route.ts) will return 503.
+- X_MEDIA_UPLOAD_ENABLED
+  - Optional flag to enable server-side single-image upload for the X composer. Set to "true" to enable.
+    Uses the legacy v1.1 media upload endpoint which may not accept OAuth 2.0 Bearer tokens in all environments.
+    If disabled or unsupported, image attachments are rejected and only text tweets are posted. See [docs/connect_x.md](docs/connect_x.md).
+
+### Cron Setup for X Queue Processing
+
+To process scheduled tweets, set up a cron job that calls the queue endpoint:
+
+```bash
+# Every 5 minutes (adjust frequency as needed)
+*/5 * * * * curl -H "x-cron-secret: YOUR_CRON_SECRET" https://your-app.com/api/cron/run-x-queue
+```
+
+For local testing, you can manually trigger the cron:
+```bash
+npm run cron:x  # Requires CRON_SECRET env var if configured
+```
+
+Required X scopes:
+```
+tweet.read users.read tweet.write offline.access media.write
+```
+
+Persistence (SQLite):
+- Local development default: `file:./data/app.db` (created automatically under the repo's `data/` folder).
+- Production: set `DATABASE_URL=file:/data/app.db` and mount a persistent volume for `/data` so tokens and scheduled posts survive restarts. See [docs/connect_x.md](docs/connect_x.md).
 
 Quick start:
 1) cp .env.example .env.local
