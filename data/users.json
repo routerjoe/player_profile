@@ -7,15 +7,15 @@
     "playerId": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
     "passwordHash": "scrypt$16384$8$1$pkMB7A5VdSwT2V+aOaCkVQ==$Mt/DhQkS9zbI8MGwVVuuAR4+K3ZivSMlT8T7zmYLhfo8qt5wZVTSr0J1jknV8fqnJL2t8dvnK5AV4Ca5v88dvg==",
     "createdAt": "2025-08-23T16:00:31.296Z",
-    "updatedAt": "2025-08-28T19:15:36.087Z",
+    "updatedAt": "2025-09-07T22:53:40.485Z",
     "socials": {
       "twitter": "lananolan08",
       "instagram": "lananolan08"
     },
     "theme": {
-      "heroFrame": "#030303",
+      "heroFrame": "#387738",
       "heroFill": "#167930",
-      "heroOverlayOpacity": 0.6,
+      "heroOverlayOpacity": 0,
       "heroOverlayEnabled": true
     }
   },
@@ -28,5 +28,15 @@
     "passwordHash": "scrypt$16384$8$1$zQQa7i7OmjcRUK0FNXl91Q==$xc4IddFrzNffyuvpiGaGubzAYXGPhso8qjFa/DHU1OWpW1bf/Yz+qFzkc35Cm4DdheGgbFzNyoOJ04MDqB6qxA==",
     "createdAt": "2025-08-23T19:19:27.846Z",
     "updatedAt": "2025-08-23T19:19:27.846Z"
+  },
+  {
+    "id": "80f2cde4-e7dc-4c57-b435-83e7da62a6f8",
+    "username": "e2euser",
+    "email": "e2e@example.com",
+    "role": "player",
+    "playerId": "80f2cde4-e7dc-4c57-b435-83e7da62a6f8",
+    "passwordHash": "scrypt$16384$8$1$phNSiUcQn7y89Et2LenChA==$q2HdpY8AVIqbdcH+s0SaZuJFYLpJYz4Dwei/NihyJTbQQ9P4SnJGekjD4OCIbzFYGw52GiB2miNH+htjeI5ZhQ==",
+    "createdAt": "2025-09-07T21:58:47.914Z",
+    "updatedAt": "2025-09-07T21:58:47.914Z"
   }
 ]

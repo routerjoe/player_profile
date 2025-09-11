@@ -4,6 +4,19 @@ import React, { useEffect, useState } from 'react';
 import { resetDraft } from '@/lib/dashboard/storage';
 import { getBlogIndex, importBlogIndex } from '@/lib/dashboard/blogStorage';
 import JSZip from 'jszip';
+import {
+  ApiError,
+  fetchCsrf as xFetchCsrf,
+  getStatus as xGetStatus,
+  getHistory as xGetHistory,
+  disconnect as xDisconnect,
+  postNow as xPostNow,
+  schedule as xSchedule,
+  retry as xRetry,
+  getPrefs as xGetPrefs,
+  setPrefs as xSetPrefs,
+  type RequestCtx as XRequestCtx,
+} from '@/lib/adapters/dashboard/x';
 
 const field =
   'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-cool)]';
@@ -41,6 +54,45 @@ const [xFile, setXFile] = useState<File | null>(null);
 const xFileRef = React.useRef<HTMLInputElement | null>(null);
 const [csrf, setCsrf] = useState<string>('');
 const [lastPostAt, setLastPostAt] = useState<number>(0);
+
+// Toasts
+type Toast = { id: string; type: 'success' | 'error' | 'info'; message: string };
+const [toasts, setToasts] = useState<Toast[]>([]);
+function showToast(type: Toast['type'], message: string, ms = 2200) {
+  const id = crypto.randomUUID();
+  setToasts((prev) => [...prev, { id, type, message }]);
+  window.setTimeout(() => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, ms);
+}
+
+// Disconnect modal
+const [disconnectOpen, setDisconnectOpen] = useState(false);
+
+// Build Request context for adapter
+function xCtx(): XRequestCtx {
+  return {
+    devUserId: devUserId || undefined,
+    csrf: csrf || undefined,
+    credentials: 'include',
+  };
+}
+
+function mapUserMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in (err as any)) {
+    const e = err as ApiError;
+    switch (e.code) {
+      case 'UNAUTH': return 'Unauthorized — please sign in again.';
+      case 'FORBIDDEN': return 'Forbidden — your account cannot perform this action.';
+      case 'RATE_LIMIT': return 'Rate limit reached — try again in a few minutes.';
+      case 'DISABLED': return 'X integration is disabled.';
+      case 'BAD_REQUEST': return 'Invalid request — check your input.';
+      case 'SERVER': return 'X is having issues — try again shortly.';
+      case 'NETWORK': return 'Network error — check your connection.';
+    }
+  }
+  return (err as any)?.message || 'Unexpected error';
+}
 
 type XHist = {
   id: string;
@@ -124,34 +176,73 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
     // Obtain CSRF token cookie + value for POSTs
     (async () => {
       try {
-        const res = await fetch('/api/csrf', { credentials: 'include' });
-        const j = await res.json().catch(() => ({}));
-        if (res.ok && j?.token) setCsrf(String(j.token));
+        const token = await xFetchCsrf();
+        if (token) setCsrf(token);
       } catch {}
     })();
+  }, []);
+
+  // X Integration — cross-tab + visibility refresh
+  function pollXStatus(ms = 2000, attempts = 5) {
+    let remaining = attempts;
+    const id = window.setInterval(async () => {
+      try {
+        await refreshXStatus();
+      } catch {}
+      remaining -= 1;
+      if (remaining <= 0) window.clearInterval(id);
+    }, ms);
+  }
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'pp_x_connected') {
+        // Another tab completed OAuth; refresh and notify
+        refreshXStatus();
+        pollXStatus();
+        showToast('success', 'Connected to X');
+      }
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        refreshXStatus();
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVis);
+
+    // If this tab was redirected back with x_connected flag, broadcast to other tabs and clean URL
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('x_connected')) {
+        localStorage.setItem('pp_x_connected', String(Date.now()));
+        url.searchParams.delete('x_connected');
+        window.history.replaceState({}, '', url.toString());
+        pollXStatus();
+      }
+    } catch {}
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   async function refreshXStatus() {
     try {
       setXLoading(true);
       setXErr(null);
-      const res = await fetch('/api/x/status', {
-        cache: 'no-store',
-        credentials: 'include',
-        headers: devUserId ? { 'x-user-id': devUserId } : {},
-      });
-      if (res.status === 401) {
-        setXStatus({ connected: false });
-        return;
-      }
-      const j = await res.json();
-      if (res.ok) {
-        setXStatus({ connected: !!j.connected, handle: j.handle, tokenExpiresAt: j.tokenExpiresAt, scopeWarning: j.scopeWarning });
-      } else {
-        setXErr(j?.error || 'Failed to fetch X status');
-      }
+      const s = await xGetStatus(xCtx());
+      setXStatus(s);
     } catch (e: any) {
-      setXErr(e?.message ?? 'Failed to fetch X status');
+      if (e instanceof ApiError && e.code === 'UNAUTH') {
+        setXStatus({ connected: false });
+      } else {
+        const msg = mapUserMessage(e);
+        setXErr(msg);
+        showToast('error', msg);
+      }
     } finally {
       setXLoading(false);
     }
@@ -160,17 +251,8 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
   async function refreshXHistory() {
     try {
       setXHistoryLoading(true);
-      const res = await fetch('/api/x/history', {
-        cache: 'no-store',
-        credentials: 'include',
-        headers: devUserId ? { 'x-user-id': devUserId } : {},
-      });
-      if (res.status === 401) {
-        setXHistory([]);
-        return;
-      }
-      const j = await res.json();
-      setXHistory(Array.isArray(j?.items) ? j.items : []);
+      const items = await xGetHistory(xCtx());
+      setXHistory(items);
     } catch {
       setXHistory([]);
     } finally {
@@ -182,50 +264,36 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
   async function loadXPrefs() {
     try {
       setPrefsLoading(true);
-      const res = await fetch('/api/x/prefs', {
-        cache: 'no-store',
-        credentials: 'include',
-        headers: devUserId ? { 'x-user-id': devUserId } : {},
-      });
-      if (res.status === 401) {
-        setAutoShare(false);
-        return;
-      }
-      const j = await res.json();
-      if (res.ok) {
-        setAutoShare(!!j?.autoShareBlogToX);
-      }
+      const prefs = await xGetPrefs(xCtx());
+      setAutoShare(!!prefs.autoShareBlogToX);
+    } catch {
+      setAutoShare(false);
     } finally {
       setPrefsLoading(false);
     }
   }
 
   async function saveXPrefs(next: boolean) {
+    const prev = autoShare;
     try {
       setPrefsLoading(true);
       setPrefsMsg(null);
       // Optimistic UI
       setAutoShare(next);
 
-      const res = await fetch('/api/x/prefs', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          ...(devUserId ? { 'x-user-id': devUserId } : {}),
-        },
-        body: JSON.stringify({ autoShareBlogToX: next }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.error || 'Failed to update preferences');
+      const prefs = await xSetPrefs(next, xCtx());
+      setAutoShare(!!prefs.autoShareBlogToX);
 
       setPrefsMsg('Preferences saved');
+      showToast('success', 'Preferences saved');
       setTimeout(() => setPrefsMsg(null), 1500);
     } catch (e: any) {
       // Revert on error
-      setAutoShare((prev) => !prev);
+      setAutoShare(prev);
       setPrefsMsg(null);
-      setXErr(e?.message ?? 'Failed to update preferences');
+      const msg = mapUserMessage(e);
+      setXErr(msg);
+      showToast('error', msg);
     } finally {
       setPrefsLoading(false);
     }
@@ -248,37 +316,37 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
   async function connectX() {
     try {
       setXErr(null);
-      const res = await fetch('/api/x/auth-url', {
-        credentials: 'include',
-        headers: devUserId ? { 'x-user-id': devUserId } : {},
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.url) throw new Error(j?.error || 'Failed to start OAuth');
-      window.location.href = j.url;
+      // Open OAuth flow in a dedicated tab via app page; pass devUserId for header fallback
+      const target = 'pp-x-oauth';
+      const suffix = devUserId ? `?devUserId=${encodeURIComponent(devUserId)}` : '';
+      const opened = window.open(`/x/connect${suffix}`, target, 'noopener,noreferrer');
+      if (!opened) {
+        // Popup blocked — best-effort second attempt without named target
+        window.open(`/x/connect${suffix}`, '_blank', 'noopener,noreferrer');
+      }
     } catch (e: any) {
-      setXErr(e?.message ?? 'Failed to start OAuth');
+      const msg = mapUserMessage(e);
+      setXErr(msg);
+      showToast('error', msg);
     }
   }
 
   async function disconnectX() {
+    setDisconnectOpen(true);
+  }
+
+  async function doDisconnect() {
     try {
-      const ok = window.confirm('Disconnect X?');
-      if (!ok) return;
       setXErr(null);
-      const res = await fetch('/api/x/disconnect', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          ...(devUserId ? { 'x-user-id': devUserId } : {}),
-          ...(csrf ? { 'x-csrf-token': csrf } : {}),
-        },
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.error || 'Disconnect failed');
+      await xDisconnect(xCtx());
+      showToast('success', 'Disconnected from X');
+      setDisconnectOpen(false);
       await refreshXStatus();
       await refreshXHistory();
     } catch (e: any) {
-      setXErr(e?.message ?? 'Disconnect failed');
+      const msg = mapUserMessage(e);
+      setXErr(msg);
+      showToast('error', msg);
     }
   }
 
@@ -286,45 +354,22 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
     try {
       setXErr(null);
       setXMsg(null);
-      if (!xText.trim()) {
+      const trimmed = xText.trim();
+      if (!trimmed) {
         setXErr('Enter text to post');
         return;
       }
-      if (xText.length > 280) {
+      if (trimmed.length > 280) {
         setXErr('Text exceeds 280 characters');
         return;
       }
       setXPostBusy(true);
 
-      let res: Response;
-      if (xFile) {
-        const fd = new FormData();
-        fd.append('text', xText.trim());
-        fd.append('file', xFile);
-        res = await fetch('/api/x/post', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            ...(devUserId ? { 'x-user-id': devUserId } : {}),
-            ...(csrf ? { 'x-csrf-token': csrf } : {}),
-          },
-          body: fd,
-        });
-      } else {
-        res = await fetch('/api/x/post', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'content-type': 'application/json',
-            ...(devUserId ? { 'x-user-id': devUserId } : {}),
-            ...(csrf ? { 'x-csrf-token': csrf } : {}),
-          },
-          body: JSON.stringify({ text: xText.trim() }),
-        });
-      }
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.error || 'Post failed');
+      const result = await xPostNow({ text: trimmed, file: xFile ?? null }, xCtx());
+      if (!result.ok) throw new Error('Post failed');
+
       setXMsg('Posted to X');
+      showToast('success', 'Posted to X');
       setXText('');
       setLastPostAt(Date.now());
       setXFile(null);
@@ -332,7 +377,9 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
       await refreshXHistory();
       setTimeout(() => setXMsg(null), 2000);
     } catch (e: any) {
-      setXErr(e?.message ?? 'Post failed');
+      const msg = mapUserMessage(e);
+      setXErr(msg);
+      showToast('error', msg);
     } finally {
       setXPostBusy(false);
     }
@@ -342,18 +389,18 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
     try {
       setXErr(null);
       setXMsg(null);
-      if (!xText.trim()) {
+      const trimmed = xText.trim();
+      if (!trimmed) {
         setXErr('Enter text to schedule');
         return;
       }
-      if (xText.length > 280) {
+      if (trimmed.length > 280) {
         setXErr('Text exceeds 280 characters');
         return;
       }
-  // removed duplicate prefs helpers
       setXScheduleBusy(true);
 
-      const payload: any = { text: xText.trim() };
+      const payload: { text: string; scheduledFor?: string } = { text: trimmed };
       if (xScheduleAt) {
         const d = new Date(xScheduleAt);
         if (!Number.isNaN(d.getTime())) {
@@ -365,44 +412,29 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
         }
       }
 
-      const res = await fetch('/api/x/schedule', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          ...(devUserId ? { 'x-user-id': devUserId } : {}),
-          ...(csrf ? { 'x-csrf-token': csrf } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.error || 'Schedule failed');
+      const result = await xSchedule(payload, xCtx());
+      if (!result.ok) throw new Error('Schedule failed');
 
       setXMsg('Scheduled');
+      showToast('success', 'Scheduled');
       setXScheduleAt('');
       await refreshXHistory();
       setTimeout(() => setXMsg(null), 2000);
     } catch (e: any) {
-      setXErr(e?.message ?? 'Schedule failed');
+      const msg = mapUserMessage(e);
+      setXErr(msg);
+      showToast('error', msg);
     } finally {
       setXScheduleBusy(false);
     }
   }
   async function retryScheduled(id: string) {
     try {
-      await fetch('/api/x/retry', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          ...(devUserId ? { 'x-user-id': devUserId } : {}),
-          ...(csrf ? { 'x-csrf-token': csrf } : {}),
-        },
-        body: JSON.stringify({ id }),
-      });
+      await xRetry(id, xCtx());
+      showToast('success', 'Retry queued');
       await refreshXHistory();
-    } catch {
-      // ignore
+    } catch (e: any) {
+      showToast('error', mapUserMessage(e));
     }
   }
 
@@ -803,6 +835,16 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
+      <div aria-live="polite" className="fixed top-3 right-3 z-50 space-y-2">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`rounded-lg px-3 py-2 shadow text-sm ${t.type === 'success' ? 'bg-green-600 text-white' : t.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'}`}
+          >
+            {t.message}
+          </div>
+        ))}
+      </div>
       {/* Account */}
       <section className={section}>
         <h2 className={sectionTitle}>Account</h2>
@@ -1001,6 +1043,20 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
                 <div className="flex items-center gap-2">
                   <button className={btnGhost} onClick={disconnectX}>Disconnect</button>
                 </div>
+
+                {disconnectOpen && (
+                  <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40" onClick={() => setDisconnectOpen(false)} />
+                    <div className="relative bg-white rounded-lg shadow p-5 w-[min(420px,90vw)]">
+                      <h4 className="text-base font-semibold text-slate-800">Disconnect X</h4>
+                      <p className="text-sm text-slate-600 mt-1">Are you sure you want to disconnect your X account?</p>
+                      <div className="mt-4 flex items-center justify-end gap-2">
+                        <button className={btnGhost} onClick={() => setDisconnectOpen(false)}>Cancel</button>
+                        <button className={btnDanger} onClick={doDisconnect}>Disconnect</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Composer */}
                 <div className="space-y-2">
@@ -1254,7 +1310,7 @@ const [prefsMsg, setPrefsMsg] = useState<string | null>(null);
             This action permanently deletes your uploads, photos metadata, profile, and teams. It cannot be undone.
           </p>
 
-          <label className={label} htmlFor="delete-confirm">Type "delete my profile" to confirm</label>
+          <label className={label} htmlFor="delete-confirm">Type &amp;quot;delete my profile&amp;quot; to confirm</label>
           <input
             id="delete-confirm"
             className={field}

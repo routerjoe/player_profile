@@ -17,7 +17,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "ci": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run lint && npm run typecheck && npm run test",
-    "cron:x": "curl -H \"x-cron-secret: ${CRON_SECRET:-}\" http://localhost:3000/api/cron/run-x-queue"
+    "cron:x": "curl -H \"x-cron-secret: ${CRON_SECRET:-}\" http://localhost:3000/api/cron/run-x-queue",
+    "test:e2e": "playwright test",
+    "ci:e2e": "playwright install --with-deps && playwright test"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +37,7 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
+    "@playwright/test": "^1.46.0",
     "@types/node": "24.3.0",
     "@types/react": "18.3.24",
     "@types/react-dom": "^18.2.20",
@@ -42,6 +45,7 @@
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.32",
+    "msw": "^2.3.1",
     "postcss": "^8.4.35",
     "postcss-loader": "^8.1.1",
     "prettier": "^3.6.2",

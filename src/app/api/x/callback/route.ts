@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { getSession as getAppSession } from "@/lib/session";
 import { encryptTokenToBuffer } from "@/lib/crypto";
 import { exchangeCodeForToken, getMe } from "@/lib/x-oauth";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +56,9 @@ export async function GET(req: Request) {
     }
 
     const clientId = process.env.X_CLIENT_ID!;
-    const redirectUri = process.env.X_REDIRECT_URI!;
+    const configuredRedirect = process.env.X_REDIRECT_URI!;
+    // Use the same redirectUri we used when creating the auth URL (persisted in session)
+    const redirectUri = (sess.oauth && (sess.oauth as any).redirectUri) || configuredRedirect;
     if (!clientId || !redirectUri) {
       return json({ error: "Server not configured for X OAuth" }, { status: 500 });
     }
@@ -119,9 +122,11 @@ export async function GET(req: Request) {
     await sess.save();
 
     // Redirect back to dashboard settings
+    logger.info('x.callback.connected', { userId, handle, scope: token.scope ?? undefined });
     const base = inferBaseUrl(req);
-    return Response.redirect(`${base}/dashboard/settings`, 303);
+    return Response.redirect(`${base}/dashboard/settings?x_connected=1`, 303);
   } catch (err: any) {
+    logger.error('x.callback.error', { message: err?.message || "Callback failed" });
     return json({ error: err?.message ?? "Callback failed" }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/guards";
 import { requireCsrf } from "@/lib/security/csrf";
 import { XScheduleBodySchema } from "@/lib/validation/x";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
         status: "scheduled",
       },
     });
+    logger.info("x.schedule.created", { userId: s.userId, id: rec.id, scheduledFor: rec.scheduledFor });
 
     return json({ ok: true, id: rec.id, scheduledFor: rec.scheduledFor, status: rec.status }, { status: 201 });
   } catch (err: any) {

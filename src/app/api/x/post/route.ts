@@ -5,6 +5,7 @@ import { postTweet, refreshAccessToken, uploadMedia } from "@/lib/x-oauth";
 import { XPostBodySchema } from "@/lib/validation/x";
 import { requireCsrf } from "@/lib/security/csrf";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,10 +45,20 @@ async function ensureValidAccessToken(account: {
   const exp = account.tokenExpiresAt?.getTime() ?? 0;
   const aboutToExpire = exp > 0 && exp < now + 30_000; // 30s skew
 
-  let accessToken = await decryptTokenFromBuffer(account.accessTokenEnc);
+  let accessToken: string;
+  try {
+    accessToken = await decryptTokenFromBuffer(account.accessTokenEnc);
+  } catch {
+    throw new Error("TOKEN_DECRYPT_FAILED");
+  }
 
   if (aboutToExpire && account.refreshTokenEnc) {
-    const refreshToken = await decryptTokenFromBuffer(account.refreshTokenEnc);
+    let refreshToken: string;
+    try {
+      refreshToken = await decryptTokenFromBuffer(account.refreshTokenEnc);
+    } catch {
+      throw new Error("TOKEN_DECRYPT_FAILED");
+    }
     const refreshed = await refreshAccessToken({
       clientId,
       clientSecret,
@@ -117,6 +128,7 @@ export async function POST(req: Request) {
     const text = (body.text || "").trim();
     if (!text) return json({ error: "text is required" }, { status: 400 });
     if (text.length > 280) return json({ error: "text exceeds 280 characters" }, { status: 400 });
+    logger.info("x.post.request", { userId: s.userId, hasImage: !!uploadFile });
 
     // Ensure connected account exists
     const account = await prisma.socialAccount.findUnique({
@@ -127,7 +139,16 @@ export async function POST(req: Request) {
       return json({ error: "X is not connected for this user" }, { status: 400 });
     }
 
-    const accessToken = await ensureValidAccessToken(account as any);
+    let accessToken: string;
+    try {
+      accessToken = await ensureValidAccessToken(account as any);
+    } catch (e: any) {
+      if (e && e.message === "TOKEN_DECRYPT_FAILED") {
+        logger.warn("x.post.reconnect_required", { userId: s.userId });
+        return json({ error: "X connection invalid — please reconnect" }, { status: 401 });
+      }
+      throw e;
+    }
 
     // Post the tweet (optionally with media)
     let mediaIds: string[] | undefined;
@@ -173,8 +194,10 @@ export async function POST(req: Request) {
       // Non-fatal: history write failure should not break posting
     }
 
+    logger.info("x.post.posted", { userId: s.userId, tweetId: posted?.data?.id ?? null });
     return json({ ok: true, tweet: posted.data });
   } catch (err: any) {
+    logger.error("x.post.error", { message: err?.message || "Post failed" });
     return json({ error: err?.message ?? "Post failed" }, { status: 500 });
   }
 }

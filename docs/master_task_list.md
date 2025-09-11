@@ -1,6 +1,6 @@
 # Master Task List
 
-Last updated: 2025-09-06
+Last updated: 2025-09-07
 
 This document is the single source of truth for project tasks. Keep sections ordered by priority. Link issues/PRs where applicable.
 
@@ -20,50 +20,44 @@ Conventions:
 
 ## Backlog
 
-- [ ] Client adapter for Dashboard (wrap /api/x/* with typed responses and consistent error mapping)
-  - File: [src/lib/adapters/dashboard/x.ts](src/lib/adapters/dashboard/x.ts)
-  - Acceptance: All X Settings actions use the adapter; network and API errors map to user-friendly toasts.
-
-- [ ] UI polish: toasts + disconnect confirmation modal in Settings
-  - File: [src/app/dashboard/settings/page.tsx](src/app/dashboard/settings/page.tsx)
-  - Acceptance: Non-blocking success/error toasts; custom confirm modal replaces window.confirm.
-
-- [ ] Unit tests
-  - Targets: [src/lib/pkce.ts](src/lib/pkce.ts), [src/lib/crypto.ts](src/lib/crypto.ts), [src/lib/x-oauth.ts](src/lib/x-oauth.ts)
-  - Acceptance: Verifier length/charset, S256; crypto round-trip + bad inputs; fetchWithRetry backoff and 429/5xx retries covered.
-
-- [ ] API tests (mock X endpoints with MSW or equivalent)
-  - Endpoints: [src/app/api/x/auth-url/route.ts](src/app/api/x/auth-url/route.ts), [src/app/api/x/callback/route.ts](src/app/api/x/callback/route.ts), [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts), [src/app/api/x/schedule/route.ts](src/app/api/x/schedule/route.ts), [src/app/api/x/retry/route.ts](src/app/api/x/retry/route.ts), [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)
-  - Acceptance: Happy path + common failures (401/403/429/5xx); queue run processes and updates records correctly.
-
-- [ ] Dev mocking: MSW setup for X OAuth/token/tweet flows
-  - Acceptance: Tests use MSW handlers; no real network calls to X.
-
-- [ ] Observability: minimal structured logs with secret scrubbing
-  - Acceptance: No tokens/secrets logged; redact patterns in error payloads; logs useful for debugging.
-
-- [ ] Deployment notes
-  - File: [README.md](README.md)
-  - Acceptance: X Developer App setup, required scopes, APP_URL/X_REDIRECT_URI alignment, Render cron cadence, volume mount for /data, token rotation notes.
-
-- [ ] Migration notes
-  - Acceptance: Document deprecation path for [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts) and new /api/x/* endpoints.
-
-- [ ] Leak tests
-  - Acceptance: Assert no secrets in responses/logs (tokens, refresh_token, Authorization headers).
-
-- [ ] Definition of Done (X Integration)
-  - Acceptance: Connect/Disconnect; tokens encrypted at rest; Post Now + Schedule; tests pass; docs updated; no Supabase.
-
-- [ ] Error mapping UX
-  - Acceptance: Standard messages for 401/403/429/5xx; UI hints for retry/backoff; scope warning surfaced.
-
-- [ ] Manual QA checklist
-  - File: [docs/x_manual_test_plan.md](docs/x_manual_test_plan.md)
-  - Acceptance: Steps for Connect/Disconnect/Post/Schedule/Retry, expired tokens, rate limits, cron path, CSRF, feature flags, image gating.
 
 ## Done
 ### X Integration
+
+- [x] Definition of Done (X Integration)
+  - Acceptance verified: Connect/Disconnect; tokens encrypted at rest; Post Now + Schedule; tests pass (CI green); docs updated; no Supabase.
+
+- [x] Observability: minimal structured logs with secret scrubbing
+  - Code: [src/lib/observability/logger.ts](src/lib/observability/logger.ts), route instrumentation: [src/app/api/x/auth-url/route.ts](src/app/api/x/auth-url/route.ts), [src/app/api/x/callback/route.ts](src/app/api/x/callback/route.ts), [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts), [src/app/api/x/schedule/route.ts](src/app/api/x/schedule/route.ts), [src/app/api/x/retry/route.ts](src/app/api/x/retry/route.ts), [src/app/api/x/status/route.ts](src/app/api/x/status/route.ts), [src/app/api/cron/run-x-queue/route.ts](src/app/api/cron/run-x-queue/route.ts)
+  - Acceptance verified: tokens/Authorization never logged; redaction patterns applied; logs useful for debugging.
+
+- [x] Unit tests
+  - Files: [tests/pkce.test.ts](tests/pkce.test.ts), [tests/crypto.test.ts](tests/crypto.test.ts), [tests/x.oauth.retry.test.ts](tests/x.oauth.retry.test.ts)
+  - Acceptance verified: PKCE verifier/challenge length/charset; crypto round-trip + bad inputs; backoff and 429/5xx retries.
+
+- [x] Dev mocking: MSW for X flows
+  - Files: [tests/setup/msw.ts](tests/setup/msw.ts), [vitest.config.ts](vitest.config.ts)
+  - Acceptance verified: tests use handlers; no real calls to X.
+
+- [x] API tests with MSW for X routes
+  - Files: [tests/x.api.routes.test.ts](tests/x.api.routes.test.ts), [tests/x.callback.api.test.ts](tests/x.callback.api.test.ts), [tests/x.oauth.msw.test.ts](tests/x.oauth.msw.test.ts)
+  - Acceptance verified: happy paths + 401/403/429/5xx; cron queue processes and updates records correctly.
+
+- [x] Leak tests
+  - Files: [tests/leaks.test.ts](tests/leaks.test.ts)
+  - Acceptance verified: no secrets in API responses or logs (tokens, refresh_token, Authorization headers).
+
+- [x] Manual QA checklist
+  - File: [docs/x_manual_test_plan.md](docs/x_manual_test_plan.md)
+  - Acceptance verified: steps authored for Connect/Disconnect/Post/Schedule/Retry, expired tokens, rate limits, cron, CSRF, flags, image gating.
+
+- [x] Migration notes
+  - File: [docs/migration_x.md](docs/migration_x.md)
+  - Acceptance verified: deprecation path for [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts) documented; new /api/x/* endpoints referenced.
+
+- [x] Deployment notes
+  - File: [README.md](README.md)
+  - Acceptance verified: Developer App setup/scopes, APP_URL/X_REDIRECT_URI alignment, Render cron cadence, volume mount for /data, token rotation notes.
 
 - [x] Environment and dependencies
   - Added X_ENABLED and X_MEDIA_UPLOAD_ENABLED to [.env.example](.env.example); documented CRON_SECRET and CSRF usage in [README.md](README.md).

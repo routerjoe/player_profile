@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth/guards";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,9 +29,9 @@ export async function GET(req: Request) {
       where: { userId: s.userId },
     });
 
-    return json({
-      autoShareBlogToX: !!rec?.autoShareBlogToX,
-    });
+    const payload = { autoShareBlogToX: !!rec?.autoShareBlogToX };
+    logger.info("x.prefs.get", { userId: s.userId, ...payload });
+    return json(payload);
   } catch (err: any) {
     return json({ error: err?.message ?? "Failed" }, { status: 500 });
   }
@@ -64,10 +65,11 @@ export async function PATCH(req: Request) {
       update: { ...patch },
     });
 
-    return json({
-      autoShareBlogToX: !!updated.autoShareBlogToX,
-    });
+    const payload = { autoShareBlogToX: !!updated.autoShareBlogToX };
+    logger.info("x.prefs.patch", { userId: s.userId, ...payload });
+    return json(payload);
   } catch (err: any) {
+    logger.error("x.prefs.error", { message: err?.message ?? "Update failed" });
     return json({ error: err?.message ?? "Update failed" }, { status: 500 });
   }
 }

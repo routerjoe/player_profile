@@ -1,8 +1,7 @@
-import { IronSessionOptions } from "iron-session";
-import { getIronSession, type IronSession } from "iron-session";
+import { getIronSession, type IronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 
-export const sessionOptions: IronSessionOptions = {
+export const sessionOptions: SessionOptions = {
   cookieName: "app_session",
   password: process.env.SESSION_PASSWORD as string,
   cookieOptions: {
@@ -12,11 +11,13 @@ export const sessionOptions: IronSessionOptions = {
   },
 };
 
+export interface AppSessionData {
+  userId?: string;
+  oauth?: { state: string; verifier: string; redirectUri?: string };
+}
+
 declare module "iron-session" {
-  interface IronSessionData {
-    userId?: string;
-    oauth?: { state: string; verifier: string };
-  }
+  interface IronSessionData extends AppSessionData {}
 }
 
 /**
@@ -33,7 +34,7 @@ export function requireSessionPassword() {
  * Obtain the iron-session for the current request using Next App Router cookies().
  * Works in Node.js runtime; cookie flags are configured in sessionOptions.
  */
-export async function getSession(): Promise<IronSession<IronSessionData>> {
+export async function getSession(): Promise<IronSession<AppSessionData>> {
   requireSessionPassword();
-  return getIronSession(cookies(), sessionOptions);
+  return getIronSession<AppSessionData>(cookies(), sessionOptions);
 }

@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { decryptTokenFromBuffer, encryptTokenToBuffer } from "@/lib/crypto";
 import { postTweet, refreshAccessToken } from "@/lib/x-oauth";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,14 +29,24 @@ async function ensureValidAccessToken(account: Account): Promise<string> {
   const clientId = process.env.X_CLIENT_ID!;
   const clientSecret = process.env.X_CLIENT_SECRET || undefined;
 
-  let accessToken = await decryptTokenFromBuffer(account.accessTokenEnc);
+  let accessToken: string;
+  try {
+    accessToken = await decryptTokenFromBuffer(account.accessTokenEnc);
+  } catch {
+    throw new Error("TOKEN_DECRYPT_FAILED");
+  }
 
   const exp = account.tokenExpiresAt?.getTime() ?? 0;
   const now = Date.now();
   const aboutToExpire = exp > 0 && exp < now + 30_000; // 30s skew
 
   if (aboutToExpire && account.refreshTokenEnc) {
-    const refreshToken = await decryptTokenFromBuffer(account.refreshTokenEnc);
+    let refreshToken: string;
+    try {
+      refreshToken = await decryptTokenFromBuffer(account.refreshTokenEnc);
+    } catch {
+      throw new Error("TOKEN_DECRYPT_FAILED");
+    }
     const refreshed = await refreshAccessToken({
       clientId,
       clientSecret,
@@ -123,6 +134,16 @@ async function processOne(sp: { id: string; userId: string; text: string | null;
     });
     return { id: sp.id, status: "posted", tweetId, tweetUrl };
   } catch (err: any) {
+    if (err && err.message === "TOKEN_DECRYPT_FAILED") {
+      try {
+        await prisma.scheduledPost.update({
+          where: { id: sp.id },
+          data: { status: "failed", errorMsg: "Reconnection required", postedAt: null },
+        });
+      } catch {}
+      logger.warn("x.cron.reconnect_required", { id: sp.id, userId: sp.userId });
+      return { id: sp.id, status: "failed", error: "Reconnection required" };
+    }
     const msg = err?.message ?? "Post failed";
     await prisma.scheduledPost.update({
       where: { id: sp.id },
@@ -195,8 +216,10 @@ export async function POST(req: Request) {
     const { xEnabled } = getEnv();
     if (!xEnabled) return json({ error: "X integration disabled" }, { status: 503 });
 
+    logger.info("x.cron.run.start", {});
     const out = await runOnce(10);
     await cleanupOldRecords(90);
+    logger.info("x.cron.run.done", { processed: out.processed });
     return json({ ok: true, ...out });
   } catch (err: any) {
     return json({ error: err?.message ?? "Cron failed" }, { status: 500 });

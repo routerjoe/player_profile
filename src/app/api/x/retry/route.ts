@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/guards";
 import { requireCsrf } from "@/lib/security/csrf";
 import { XRetryBodySchema } from "@/lib/validation/x";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
       },
     });
 
+    logger.info("x.retry.enqueued", { userId: s.userId, id: updated.id, status: updated.status });
     return json({ ok: true, id: updated.id, status: updated.status, scheduledFor: updated.scheduledFor });
   } catch (err: any) {
     return json({ error: err?.message ?? "Retry failed" }, { status: 500 });

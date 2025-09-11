@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth/guards";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export async function GET(req: Request) {
 
     const xEnabled = (process.env.X_ENABLED || "true").toLowerCase() !== "false";
     if (!xEnabled) {
+      logger.info("x.status.disabled", {});
       return json({ error: "X integration disabled" }, { status: 503 });
     }
 
@@ -40,6 +42,7 @@ export async function GET(req: Request) {
     });
 
     if (!account) {
+      logger.info("x.status.unconnected", { userId: s.userId });
       return json({ connected: false });
     }
 
@@ -48,6 +51,11 @@ export async function GET(req: Request) {
     const missing = required.filter((r) => !got.includes(r));
     const scopeWarning = missing.length ? `Missing scopes: ${missing.join(", ")}` : undefined;
 
+    logger.info("x.status.ok", {
+      userId: s.userId,
+      hasHandle: !!account.handle,
+      hasScopeWarning: !!scopeWarning
+    });
     return json({
       connected: true,
       handle: account.handle ?? undefined,
@@ -55,6 +63,7 @@ export async function GET(req: Request) {
       scopeWarning,
     });
   } catch (err: any) {
+    logger.error("x.status.error", { message: err?.message ?? "Status failed" });
     return json({ error: err?.message ?? "Status failed" }, { status: 500 });
   }
 }

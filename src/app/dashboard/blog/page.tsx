@@ -13,6 +13,13 @@ import {
 } from '@/lib/dashboard/blogStorage';
 import { blog as sampleBlog } from '@/lib/sample/blog';
 import { MediaPicker } from '@/components/dashboard/MediaPicker';
+import {
+  ApiError,
+  fetchCsrf as xFetchCsrf,
+  getStatus as xGetStatus,
+  disconnect as xDisconnect,
+  type RequestCtx as XRequestCtx,
+} from '@/lib/adapters/dashboard/x';
 
 type Issue = { path: string; message: string };
 
@@ -78,6 +85,15 @@ export default function DashboardBlogPage() {
   const [errors, setErrors] = useState<Issue[] | undefined>(undefined);
   const [status, setStatus] = useState<string | null>(null);
 
+  // X Integration (inline status on Blog page)
+  const [xStatus, setXStatus] = useState<{ connected: boolean; handle?: string } | null>(null);
+  const [xLoading, setXLoading] = useState(false);
+  const [xErr, setXErr] = useState<string | null>(null);
+  const [csrf, setCsrf] = useState<string>('');
+
+  const devUserId =
+    typeof window !== 'undefined' ? window.localStorage.getItem('pp_user_id') || '' : '';
+
   // Load initial index from localStorage (or seed with sample)
   useEffect(() => {
     let existing = getDraftIndex();
@@ -101,6 +117,52 @@ export default function DashboardBlogPage() {
     });
     return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // X Integration — obtain CSRF and initial status
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await xFetchCsrf();
+        if (token) setCsrf(token);
+      } catch {}
+      try {
+        await refreshXStatus();
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // X Integration — cross-tab + visibility refresh
+  function pollXStatus(ms = 2000, attempts = 5) {
+    let remaining = attempts;
+    const id = window.setInterval(async () => {
+      try {
+        await refreshXStatus();
+      } catch {}
+      remaining -= 1;
+      if (remaining <= 0) window.clearInterval(id);
+    }, ms);
+  }
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'pp_x_connected') {
+        refreshXStatus();
+        pollXStatus();
+      }
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        refreshXStatus();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const posts = useMemo(() => {
@@ -175,6 +237,73 @@ export default function DashboardBlogPage() {
     }
   }
 
+  // X Integration helpers
+  function xCtx(): XRequestCtx {
+    return {
+      devUserId: devUserId || undefined,
+      csrf: csrf || undefined,
+      credentials: 'include',
+    };
+  }
+
+  function mapUserMessage(err: unknown): string {
+    if (err && typeof err === 'object' && 'code' in (err as any)) {
+      const e = err as ApiError;
+      switch (e.code) {
+        case 'UNAUTH': return 'Unauthorized — please sign in again.';
+        case 'FORBIDDEN': return 'Forbidden — your account cannot perform this action.';
+        case 'DISABLED': return 'X integration is disabled.';
+        case 'BAD_REQUEST': return 'Invalid request.';
+        case 'SERVER': return 'X is having issues — try again shortly.';
+        case 'NETWORK': return 'Network error.';
+      }
+    }
+    return (err as any)?.message || 'Unexpected error';
+  }
+
+  async function refreshXStatus() {
+    try {
+      setXLoading(true);
+      setXErr(null);
+      const s = await xGetStatus(xCtx());
+      setXStatus(s);
+    } catch (e: any) {
+      if (e instanceof ApiError && e.code === 'UNAUTH') {
+        setXStatus({ connected: false });
+      } else {
+        setXErr(mapUserMessage(e));
+      }
+    } finally {
+      setXLoading(false);
+    }
+  }
+
+  async function handleConnect() {
+    try {
+      setXErr(null);
+      // Open OAuth flow in a dedicated tab via app page; pass devUserId for header fallback
+      const target = 'pp-x-oauth';
+      const suffix = devUserId ? `?devUserId=${encodeURIComponent(devUserId)}` : '';
+      const opened = window.open(`/x/connect${suffix}`, target, 'noopener,noreferrer');
+      if (!opened) {
+        // Popup blocked — best-effort second attempt without named target
+        window.open(`/x/connect${suffix}`, '_blank', 'noopener,noreferrer');
+      }
+    } catch (e: any) {
+      setXErr(mapUserMessage(e));
+    }
+  }
+
+  async function handleDisconnect() {
+    try {
+      setXErr(null);
+      await xDisconnect(xCtx());
+      await refreshXStatus();
+    } catch (e: any) {
+      setXErr(mapUserMessage(e));
+    }
+  }
+
   async function publish(p: BlogPost | null) {
     if (!p) return;
     const payload: BlogPost = {
@@ -210,20 +339,33 @@ export default function DashboardBlogPage() {
 
       if (payload.tweetOnPublish) {
         try {
+          // Obtain CSRF token (sets cookie) for X posting
+          const csrfRes = await fetch('/api/csrf', { credentials: 'include' });
+          const csrfJson = await csrfRes.json().catch(() => ({}));
+          const csrf = csrfJson?.token;
+
           const text = `${payload.title} /blog/${payload.slug}`;
-          const r = await fetch('/api/twitter/post', {
+          const r = await fetch('/api/x/post', {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ text, slug: payload.slug, title: payload.title }),
+            headers: {
+              'content-type': 'application/json',
+              ...(csrf ? { 'x-csrf-token': csrf } : {}),
+            },
+            credentials: 'include',
+            body: JSON.stringify({ text }),
           });
-          const j = await r.json();
+
+          const ct = (r.headers.get('content-type') || '').toLowerCase();
+          const j = ct.includes('application/json') ? await r.json() : { error: await r.text() };
+
           if (r.ok) {
-            setStatus((s) => (s ? `${s} • Tweet sent (${j?.id ?? 'ok'})` : `Tweet sent (${j?.id ?? 'ok'})`));
+            const id = j?.tweet?.id ?? j?.id ?? 'ok';
+            setStatus((s) => (s ? `${s} • X post sent (${id})` : `X post sent (${id})`));
           } else {
-            setStatus((s) => (s ? `${s} • Tweet failed: ${j?.error ?? 'Unknown error'}` : `Tweet failed: ${j?.error ?? 'Unknown error'}`));
+            setStatus((s) => (s ? `${s} • X post failed: ${j?.error ?? r.status}` : `X post failed: ${j?.error ?? r.status}`));
           }
         } catch (e: any) {
-          setStatus((s) => (s ? `${s} • Tweet failed: ${e?.message ?? 'Unknown error'}` : `Tweet failed: ${e?.message ?? 'Unknown error'}`));
+          setStatus((s) => (s ? `${s} • X post failed: ${e?.message ?? 'Unknown error'}` : `X post failed: ${e?.message ?? 'Unknown error'}`));
         }
       }
     } else {
@@ -432,8 +574,39 @@ export default function DashboardBlogPage() {
                       checked={!!draft.tweetOnPublish}
                       onChange={(e) => set('tweetOnPublish', e.target.checked)}
                     />
-                    Tweet on publish (stub)
+                    Share to X on publish
                   </label>
+                </div>
+                <div className="text-xs text-slate-600">
+                  {xLoading ? (
+                    <span>X: Checking connection…</span>
+                  ) : xStatus?.connected ? (
+                    <>
+                      X: Connected
+                      {xStatus.handle ? (
+                        <> as <span className="font-semibold">{xStatus.handle}</span></>
+                      ) : null}
+                      <button
+                        type="button"
+                        className={btnGhost + ' ml-2'}
+                        onClick={handleDisconnect}
+                      >
+                        Disconnect
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      X: Not connected
+                      <button
+                        type="button"
+                        className={btnGhost + ' ml-2'}
+                        onClick={handleConnect}
+                      >
+                        Connect
+                      </button>
+                    </>
+                  )}
+                  {xErr ? <span className="ml-2 text-red-600">{xErr}</span> : null}
                 </div>
 
                 <div className="flex items-center gap-2">

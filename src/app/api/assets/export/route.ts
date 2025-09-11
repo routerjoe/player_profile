@@ -83,7 +83,10 @@ export async function GET(req: Request) {
       compressionOptions: { level: 6 },
     });
 
-    return new Response(buf, {
+    // Use a plain Uint8Array for Response body to satisfy TS BodyInit typing
+    const body = new Uint8Array(buf);
+
+    return new Response(body, {
       headers: {
         'content-type': 'application/zip',
         'content-disposition': `attachment; filename="assets_${playerId}.zip"`,

@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth/guards";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
       tweetUrl: (r as any).tweetUrl ?? null,
     }));
 
+    logger.info("x.history.list", { userId: s.userId, count: items.length });
     return json({ items }, { status: 200 });
   } catch (err: any) {
     return json({ error: err?.message ?? "History failed" }, { status: 500 });

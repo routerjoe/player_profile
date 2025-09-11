@@ -3,7 +3,7 @@
     "playerId": "5c27e367-b4c8-483c-bfd7-e3c91d24cb73",
     "profile": {
       "name": {
-        "first": "Lana",
+        "first": "Dana",
         "last": "Nolan"
       },
       "classYear": 2027,
@@ -50,8 +50,8 @@
       ],
       "highlights": [
         {
-          "title": "Double Play!",
-          "videoUrl": "https://youtu.be/GcMlE50VU7k",
+          "title": "Line-drive double to the gap",
+          "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
           "date": "2024-05-01"
         },
         {
@@ -99,6 +99,6 @@
         "description": "Modern player profile and dashboard"
       }
     },
-    "updatedAt": "2025-09-02T04:42:20.539Z"
+    "updatedAt": "2025-09-11T15:52:34.375Z"
   }
 ]

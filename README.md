@@ -64,16 +64,13 @@ Modern Next.js + TypeScript + Tailwind app.
 - Media Upload (multipart/form-data)
   - POST /api/media/upload — returns a fake CDN URL and metadata
   - Source: [src/app/api/media/upload/route.ts](src/app/api/media/upload/route.ts)
-- Twitter Post (JSON)
-  - POST /api/twitter/post — returns a fake tweet id
-  - Source: [src/app/api/twitter/post/route.ts](src/app/api/twitter/post/route.ts)
 
 ## Using the Dashboard Blog Editor
 - Navigate to /dashboard/blog
 - New Post: creates a draft with a unique slug.
 - Fields: title, slug (auto slugify or manual), summary, tags (comma-separated), hero image (via MediaPicker), markdown content.
 - Status and scheduling: set Draft/Scheduled/Published; optionally set scheduledAt/publishedAt.
-- Publish: persists as published; if "Tweet on publish" is enabled, a request is sent to the Twitter stub.
+- Publish: persists as published; if "Tweet on publish" is enabled, a request can be sent via the X integration (see Dashboard → Settings).
 - Import/Export: validate and import JSON of the entire blog index or export the current index.
 
 ## Public Blog
@@ -318,3 +315,55 @@ Quick start:
 4) Adjust MEDIA_MAX_UPLOAD_MB as needed (default 100)
 
 Note: .env files are already ignored in [.gitignore](.gitignore).
+
+## Deployment Notes — X Integration
+
+X Developer App Setup
+- Create an app in the X Developer Portal and enable OAuth 2.0 with PKCE.
+- Add OAuth 2.0 Redirect URI: set to your APP_URL-based callback, e.g. https://YOURDOMAIN.com/api/x/callback.
+- Scopes: grant the following required scopes exactly:
+  tweet.read users.read tweet.write offline.access media.write
+- Copy Client ID and Client Secret and configure environment:
+  - X_CLIENT_ID, X_CLIENT_SECRET, X_REDIRECT_URI, APP_URL, APP_SECRET, SESSION_PASSWORD
+
+Environment Alignment
+- APP_URL must match your deployed base URL (protocol + host, no trailing slash).
+- X_REDIRECT_URI must be exactly {APP_URL}/api/x/callback and whitelisted in the X Developer App.
+
+Persistence and Volumes
+- SQLite database must live on persistent storage:
+  - Local dev default: file:./data/app.db
+  - Production: DATABASE_URL=file:/data/app.db and mount a persistent volume at /data
+- If you use the Media Library or plan to attach images to tweets, mount /public/uploads as persistent storage as well.
+
+Cron for Scheduled Posts
+- Configure a cron job to invoke the queue processor periodically (e.g., every 5 minutes):
+  - curl -H "x-cron-secret: YOUR_CRON_SECRET" https://YOURDOMAIN.com/api/cron/run-x-queue
+- Locally you can trigger via npm script:
+  - npm run cron:x
+- Optionally set CRON_SECRET and include x-cron-secret header in the request.
+
+Token Rotation (Refresh)
+- Access tokens are refreshed automatically when near expiry during posting:
+  - See [src/app/api/x/post/route.ts](src/app/api/x/post/route.ts) and the X OAuth helpers in [src/lib/x-oauth.ts](src/lib/x-oauth.ts).
+- Refreshed tokens (and new expiry) are persisted back to SQLite with encryption-at-rest using libsodium secretbox; key is derived from APP_SECRET.
+
+APP_SECRET Rotation (Encryption key changes)
+- Tokens are encrypted at rest using libsodium secretbox with a key derived from APP_SECRET.
+- If APP_SECRET changes, previously stored ciphertext cannot be decrypted. The system responds as follows:
+  - POST /api/x/post → 401 with a message like “X connection invalid — please reconnect”.
+  - Cron processing marks affected scheduled items as failed with “Reconnection required”.
+- Recovery steps:
+  - Users must click “Connect X” again in Dashboard → Settings to re-authorize their account. New tokens are stored using the new APP_SECRET-derived key.
+- Operational recommendation:
+  - Avoid rotating APP_SECRET in production when possible. If rotation is necessary, plan a maintenance window and notify users they will need to reconnect X.
+  - Optional future enhancement: implement dual-key decryption during a migration window (not implemented).
+
+Security and Flags
+- CSRF: use double-submit cookie via GET /api/csrf and send x-csrf-token on sensitive POSTs.
+- Feature flag: set X_ENABLED=false to disable all X routes and surface a disabled state in status.
+- Image uploads: gated by X_MEDIA_UPLOAD_ENABLED. The legacy v1.1 media/upload endpoint may not accept OAuth 2.0 Bearer tokens in all environments; disable if unsupported.
+
+Manual QA and Migration
+- Manual test steps: [docs/x_manual_test_plan.md](docs/x_manual_test_plan.md)
+- Migration notes from legacy stub: [docs/migration_x.md](docs/migration_x.md)
